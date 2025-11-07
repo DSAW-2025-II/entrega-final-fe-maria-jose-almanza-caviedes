@@ -1,0 +1,34 @@
+/* Tailwind base layer: applies a modern CSS reset and sensible defaults for typography and elements. */
+@tailwind base;
+/* Tailwind components layer: higher-level utility compositions (can host custom component classes). */
+@tailwind components;
+/* Tailwind utilities layer: single-purpose classes (p-4, grid, text-gray-600) used throughout the UI. */
+@tailwind utilities;
+
+/* Global background design:
+   - Multiple backgrounds are stacked top-to-bottom to achieve soft "halo" effects and a subtle light gradient.
+   - Two radial-gradients placed at opposite corners add gentle color ambiance without distracting the content.
+   - The bottom linear-gradient ensures uniform, readable contrast across the viewport.
+   - Performance: pure CSS gradients are GPU-accelerated and avoid heavy image assets; cost is minimal on modern devices. */
+body {
+  /* First radial gradient: large ellipse from top-left, indigo-like tint with soft fade to transparent. */
+  background:
+    radial-gradient(1200px 600px at 0% 0%, rgba(99,102,241,0.12), transparent 60%),
+    /* Second radial gradient: large ellipse from bottom-right, sky/cyan tint, also fading out smoothly. */
+    radial-gradient(1000px 500px at 100% 100%, rgba(56,189,248,0.12), transparent 60%),
+    /* Base linear gradient: near-white vertical ramp for consistent, clean backdrop under glass cards. */
+    linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+/* Optional subtle grid overlay:
+   - Two 1px linear gradients (vertical/horizontal) form a light grid to add depth without visual noise.
+   - background-size defines the grid cell size (24px).
+   - mask-image with a radial gradient fades the pattern toward edges to keep focus on central content.
+   - Usage: add class "bg-grid-overlay" to a full-bleed container beneath glass components. */
+.bg-grid-overlay {
+  background-image:
+    linear-gradient(rgba(15, 23, 42, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 23, 42, 0.06) 1px, transparent 1px);
+  background-size: 24px 24px;
+  mask-image: radial-gradient(ellipse at center, rgba(0,0,0,0.7), transparent 65%);
+}

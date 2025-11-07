@@ -1,0 +1,1195 @@
+{
+  "source": {
+    "planeacionPdf": "Documentacion/Wheels Sabana - Planeacion.pdf",
+    "ticketsPdf": "Documentacion/WHEELS UNISABANA.pdf",
+    "checklistsJson": "Documentacion/wheels-sabana.json",
+    "note": "Consolidado manual a partir de la planeación y los tickets entregados."
+  },
+  "tickets": [
+    {
+      "id": "REG-001",
+      "epic": "Registration & Authentication",
+      "title": "Registration with University Email",
+      "description": "Allow students to register with their institutional email, storing hashed passwords and minimal PII.",
+      "priority": "High",
+      "labels": ["Epic: Registration", "Frontend", "Backend"],
+      "acceptanceCriteria": [
+        "Form captures first name, last name, university ID, phone, email",
+        "Email must end with @unisabana.edu.co",
+        "User saved in DB with hashed password"
+      ],
+      "checklist": [
+        "Design registration screen in Figma",
+        "Design error states in Figma (invalid inputs, empty fields)",
+        "Implement frontend registration form with client-side validation",
+        "Implement backend POST /auth/register",
+        "Validate email domain on backend",
+        "Hash password with bcrypt/argon2 and persist user",
+        "Trigger welcome email and redirect to login",
+        "Add backend unit tests for validation"
+      ],
+      "apiContract": [
+        {
+          "endpoint": "/auth/register",
+          "method": "POST",
+          "request": "{ firstName, lastName, universityId, phone, email, password, role?, photoUrl?, vehicle? }",
+          "response": "{ user: {...}, vehicle: {...}|null }",
+          "notes": "Reject non-institutional domains; hash password before save"
+        }
+      ]
+    },
+    {
+      "id": "REG-002",
+      "epic": "Registration & Authentication",
+      "title": "Login with Credentials",
+      "description": "Authenticate registered users with email and password and return a token.",
+      "priority": "High",
+      "labels": ["Epic: Registration", "Frontend", "Backend"],
+      "acceptanceCriteria": ["Login accepts email and password and returns auth token", "Invalid credentials show friendly error"],
+      "checklist": [
+        "Design login screen in Figma",
+        "Design error states in Figma (wrong credentials, empty fields)",
+        "Implement frontend login form",
+        "Implement backend POST /auth/login issuing JWT",
+        "Add auth middleware for protected endpoints",
+        "Add unit/integration tests"
+      ],
+      "apiContract": [
+        {
+          "endpoint": "/auth/login",
+          "method": "POST",
+          "request": "{ email, password }",
+          "response": "{ token, user }",
+          "notes": "Return 401 with descriptive error for invalid credentials"
+        }
+      ]
+    },
+    {
+      "id": "REG-003",
+      "epic": "Registration & Authentication",
+      "title": "Logout",
+      "description": "Allow users to log out, cleaning client tokens and invalidating refresh tokens if present.",
+      "priority": "Medium",
+      "labels": ["Epic: Registration", "Frontend", "Backend"],
+      "acceptanceCriteria": ["Logout clears client token/session", "Server invalidates refresh tokens if applicable"],
+      "checklist": [
+        "Add logout button in UI",
+        "Implement client-side token removal and redirect to login",
+        "Implement backend endpoint to invalidate refresh tokens"
+      ],
+      "apiContract": [
+        {
+          "endpoint": "/auth/logout",
+          "method": "POST",
+          "request": "{}",
+          "response": "{ ok: true }",
+          "notes": "If refresh tokens exist, revoke them server-side"
+        }
+      ]
+    },
+    {
+      "id": "REG-004",
+      "epic": "Registration & Authentication",
+      "title": "Password Recovery",
+      "description": "Support password reset via single-use token delivered to institutional email.",
+      "priority": "Medium",
+      "labels": ["Epic: Registration", "Frontend", "Backend"],
+      "acceptanceCriteria": [
+        "Recovery request sends single-use link",
+        "Link expires after short time"
+      ],
+      "checklist": [
+        "Design password recovery request and reset screens in Figma",
+        "Design error states in Figma (unknown email, expired token)",
+        "Implement POST /auth/forgot-password to send tokenized email",
+        "Implement POST /auth/reset-password to set new password",
+        "Persist tokens with expiration",
+        "Create email templates and automated tests"
+      ],
+      "apiContract": [
+        {
+          "endpoint": "/auth/forgot-password",
+          "method": "POST",
+          "request": "{ email }",
+          "response": "{ ok: true }",
+          "notes": "Always return ok to avoid user enumeration"
+        },
+        {
+          "endpoint": "/auth/reset-password",
+          "method": "POST",
+          "request": "{ token, password }",
+          "response": "{ ok: true }",
+          "notes": "Token single-use with expiration"
+        }
+      ]
+    },
+    {
+      "id": "REG-005",
+      "epic": "Registration & Authentication",
+      "title": "View & Edit Profile",
+      "description": "Allow authenticated users to view and update their profile data, including photo upload handling.",
+      "priority": "High",
+      "labels": ["Epic: Registration", "Frontend", "Backend", "Structure"],
+      "acceptanceCriteria": [
+        "User can view profile fields",
+        "User can update permitted fields",
+        "Changes persist in DB"
+      ],
+      "checklist": [
+        "Design profile view and edit screens in Figma",
+        "Implement frontend profile page with editable form",
+        "Implement backend GET /users/me",
+        "Implement backend PUT /users/me with validation",
+        "Handle profile photo upload/storage"
+      ],
+      "apiContract": [
+        {
+          "endpoint": "/users/me",
+          "method": "GET",
+          "request": "Authorization: Bearer <token>",
+          "response": "{ user, vehicle? }",
+          "notes": "Return associated vehicle if present"
+        },
+        {
+          "endpoint": "/users/me",
+          "method": "PUT",
+          "request": "{ firstName?, lastName?, phone?, photoUrl? }",
+          "response": "{ user }",
+          "notes": "Validate inputs, email immutable"
+        }
+      ]
+    },
+    {
+      "id": "REG-006",
+      "epic": "Registration & Authentication",
+      "title": "Validate Institutional Email",
+      "description": "Enforce institutional email domain during registration to ensure authentic users.",
+      "priority": "High",
+      "labels": ["Epic: Registration", "Backend"],
+      "acceptanceCriteria": [
+        "No account created for other domains",
+        "Error message explains institutional requirement"
+      ],
+      "checklist": [
+        "Add server-side email domain validation",
+        "Expose client-side hint",
+        "Add tests for domain validation"
+      ],
+      "apiContract": [
+        {
+          "endpoint": "/auth/register",
+          "method": "POST",
+          "request": "{ email, ... }",
+          "response": "{ error?: string, user?: {...} }",
+          "notes": "Reject when email domain is not @unisabana.edu.co"
+        }
+      ]
+    },
+    {
+      "id": "VEH-007",
+      "epic": "Vehicles & Driver Management",
+      "title": "Register Vehicle",
+      "description": "Allow users to register a vehicle with mandatory documents to become drivers.",
+      "priority": "High",
+      "labels": ["Epic: Vehicles", "Frontend", "Backend", "Structure"],
+      "acceptanceCriteria": [
+        "Form accepts vehicle details", "Documents upload fields present", "Vehicle linked to user"
+      ],
+      "checklist": [
+        "Design vehicle registration form in Figma",
+        "Design error states in Figma (invalid plate, missing docs)",
+        "Implement frontend form with file uploads",
+        "Implement backend POST /vehicles",
+        "Store documents securely (S3/local secure storage)",
+        "Validate mandatory fields and success flow"
+      ],
+      "apiContract": [
+        {
+          "endpoint": "/vehicles",
+          "method": "POST",
+          "request": "{ plate, brand, model, capacity, soatPhotoUrl, licensePhotoUrl?, vehiclePhotoUrl }",
+          "response": "{ vehicle }",
+          "notes": "Associate vehicle with authenticated user"
+        }
+      ]
+    },
+    {
+      "id": "VEH-008",
+      "epic": "Vehicles & Driver Management",
+      "title": "Switch between Passenger and Driver Roles",
+      "description": "Allow users to toggle active role with backend validation for driver requirements.",
+      "priority": "Medium",
+      "labels": ["Epic: Vehicles", "Frontend", "Backend"],
+      "acceptanceCriteria": [
+        "Toggle available in profile",
+        "Switch to driver disabled without valid vehicle"
+      ],
+      "checklist": [
+        "Design role toggle UI in Figma",
+        "Implement frontend toggle and session state",
+        "Implement backend PUT /users/role",
+        "Validate vehicle/documents before switching"
+      ],
+      "apiContract": [
+        {
+          "endpoint": "/users/role",
+          "method": "PUT",
+          "request": "{ role }",
+          "response": "{ user }",
+          "notes": "Return 400 if vehicle missing or docs invalid"
+        }
+      ]
+    },
+    {
+      "id": "VEH-009",
+      "epic": "Vehicles & Driver Management",
+      "title": "Manage Multiple Vehicles",
+      "description": "Allow drivers to add, edit, delete vehicles and set active vehicle for trips.",
+      "priority": "Medium",
+      "labels": ["Epic: Vehicles", "Frontend", "Backend"],
+      "acceptanceCriteria": [
+        "Add more than one vehicle",
+        "Set active vehicle"
+      ],
+      "checklist": [
+        "Design vehicle list + CRUD UI in Figma",
+        "Implement frontend flows for add/edit/delete/select",
+        "Implement backend CRUD on /vehicles",
+        "Prevent deleting vehicles linked to active trips",
+        "Add data integrity tests"
+      ],
+      "apiContract": [
+        {
+          "endpoint": "/vehicles",
+          "method": "GET",
+          "request": "Authorization header",
+          "response": "[vehicle]",
+          "notes": "Return vehicles owned by user"
+        },
+        {
+          "endpoint": "/vehicles/:id",
+          "method": "PUT",
+          "request": "Partial vehicle updates",
+          "response": "{ vehicle }",
+          "notes": "Validate ownership"
+        },
+        {
+          "endpoint": "/vehicles/:id",
+          "method": "DELETE",
+          "request": "{}",
+          "response": "{ ok: true }",
+          "notes": "Reject deletion when active trips exist"
+        }
+      ]
+    },
+    {
+      "id": "VEH-010",
+      "epic": "Vehicles & Driver Management",
+      "title": "Validate Vehicle Data",
+      "description": "Validate capacity and plate format before allowing vehicle usage in trips.",
+      "priority": "Medium",
+      "labels": ["Epic: Vehicles", "Backend"],
+      "acceptanceCriteria": [
+        "Capacity in valid range",
+        "Plate format per local rules"
+      ],
+      "checklist": [
+        "Implement backend validators",
+        "Add client-side validation messages",
+        "Add unit tests"
+      ],
+      "apiContract": [
+        {
+          "endpoint": "/vehicles/validate",
+          "method": "POST",
+          "request": "{ plate, capacity }",
+          "response": "{ ok: boolean, errors?: [...] }",
+          "notes": "Service may be used client-side prior to submission"
+        }
+      ]
+    },
+    {
+      "id": "VEH-011",
+      "epic": "Vehicles & Driver Management",
+      "title": "Validate Documents (SOAT & License)",
+      "description": "Ensure SOAT and license documents are valid before trip creation.",
+      "priority": "High",
+      "labels": ["Epic: Vehicles", "Backend", "Structure"],
+      "acceptanceCriteria": [
+        "Expired documents prevent trip creation",
+        "Notify driver to renew"
+      ],
+      "checklist": [
+        "Persist document expiry dates",
+        "Check validity on trip creation",
+        "Add UI warnings on driver dashboard",
+        "Send renewal notifications"
+      ],
+      "apiContract": [
+        {
+          "endpoint": "/vehicles/documents/validate",
+          "method": "POST",
+          "request": "{ vehicleId }",
+          "response": "{ ok: boolean, reasons?: [...] }",
+          "notes": "May also expose GET for status overview"
+        }
+      ]
+    },
+    {
+      "id": "TRIP-012",
+      "epic": "Trip Management",
+      "title": "Create Trip (Driver)",
+      "description": "Allow drivers to create trips with route, schedule, seats, and price.",
+      "priority": "High",
+      "labels": ["Epic: Trips", "Frontend", "Backend", "Structure"],
+      "acceptanceCriteria": [
+        "Trip stored with required fields",
+        "Seats <= vehicle capacity",
+        "Trip visible to passengers"
+      ],
+      "checklist": [
+        "Design trip creation screen in Figma",
+        "Design error states in Figma (invalid schedule, price)",
+        "Implement frontend creation form and validation",
+        "Implement backend POST /trips",
+        "Integrate distance/time calculation service",
+        "Set default status and add tests + Swagger docs"
+      ],
+      "apiContract": [
+        {
+          "endpoint": "/trips",
+          "method": "POST",
+          "request": "{ vehicleId, origin, destination, routeDescription, departureAt, seatsRequested, pricePerSeat, pickupPoints?, distanceKm?, durationMinutes? }",
+          "response": "{ trip }",
+          "notes": "Reject when seats exceed vehicle capacity or docs invalid"
+        }
+      ]
+    },
+    {
+      "id": "TRIP-013",
+      "epic": "Trip Management",
+      "title": "Add Pickup Points (Driver)",
+      "description": "Allow drivers to manage pickup points for trips, visible to passengers.",
+      "priority": "High",
+      "labels": ["Epic: Trips", "Frontend", "Backend", "Structure"],
+      "acceptanceCriteria": [
+        "Pickup points displayed on trip details",
+        "Passenger selects pickup during reservation"
+      ],
+      "checklist": [
+        "Design pickup point UI in Figma",
+        "Implement add/edit pickup points in frontend",
+        "Persist pickup points in backend",
+        "Show pickup points on map",
+        "Require pickup selection during reservation"
+      ],
+      "apiContract": [
+        {
+          "endpoint": "/trips/:id/pickups",
+          "method": "POST",
+          "request": "{ points: [{ name, description, lat, lng }] }",
+          "response": "{ trip }",
+          "notes": "Use PUT to update existing pickup points"
+        }
+      ]
+    },
+    {
+      "id": "TRIP-014",
+      "epic": "Trip Management",
+      "title": "Calculate Distance & Estimated Time",
+      "description": "Integrate Google Maps APIs to calculate distance and ETA for trips with caching.",
+      "priority": "High",
+      "labels": ["Epic: Trips", "Backend", "Structure"],
+      "acceptanceCriteria": [
+        "Distance and ETA stored and displayed",
+        "Handle request limits gracefully"
+      ],
+      "checklist": [
+        "Integrate Google Maps Directions/Distance Matrix",
+        "Implement backend service with caching (Redis)",
+        "Expose data in frontend trip details",
+        "Handle rate limits"
+      ],
+      "apiContract": [
+        {
+          "endpoint": "/maps/calculate",
+          "method": "POST",
+          "request": "{ origin: { lat, lng }, destination: { lat, lng }, waypoints? }",
+          "response": "{ distanceKm, durationMinutes, providerMeta }",
+          "notes": "Cache repeated queries"
+        }
+      ]
+    },
+    {
+      "id": "TRIP-015",
+      "epic": "Trip Management",
+      "title": "Suggest Tariff",
+      "description": "Provide suggested tariff based on distance, time, and inflation, editable within range.",
+      "priority": "High",
+      "labels": ["Epic: Trips", "Backend", "Structure"],
+      "acceptanceCriteria": [
+        "System suggests price",
+        "Driver can adjust within ±20%",
+        "Formula documented"
+      ],
+      "checklist": [
+        "Define tariff formula",
+        "Implement calculation service",
+        "Expose suggestion in driver UI",
+        "Persist final chosen tariff"
+      ],
+      "apiContract": [
+        {
+          "endpoint": "/trips/tariff/suggest",
+          "method": "POST",
+          "request": "{ distanceKm, durationMinutes, demandFactor? }",
+          "response": "{ suggestedTariff, range: { min, max } }",
+          "notes": "Driver must submit final price in trip creation/update"
+        }
+      ]
+    },
+    {
+      "id": "TRIP-016",
+      "epic": "Trip Management",
+      "title": "View Available Trips",
+      "description": "Allow passengers to browse trips with filters and real-time updates.",
+      "priority": "High",
+      "labels": ["Epic: Trips", "Frontend", "Backend", "Structure"],
+      "acceptanceCriteria": [
+        "List trips with seats > 0 and status active",
+        "Click to view details"
+      ],
+      "checklist": [
+        "Design trip listing cards in Figma",
+        "Implement frontend list and filters",
+        "Implement backend GET /trips with filtering params",
+        "Add real-time updates (sockets/Firebase)",
+        "Add pagination"
+      ],
+      "apiContract": [
+        {
+          "endpoint": "/trips",
+          "method": "GET",
+          "request": "Query params departure_point, min_seats, max_price, start_time, end_time, page, pageSize",
+          "response": "{ trips: [...], paging: {...} }",
+          "notes": "Only return trips with available seats unless includeFull=true"
+        }
+      ]
+    },
+    {
+      "id": "TRIP-017",
+      "epic": "Trip Management",
+      "title": "Reserve Seats",
+      "description": "Allow passengers to reserve seats and decrement availability atomically.",
+      "priority": "High",
+      "labels": ["Epic: Trips", "Frontend", "Backend", "Structure"],
+      "acceptanceCriteria": [
+        "Seats reserved decrement availability immediately",
+        "Reservation stores passenger, seats count, pickup point"
+      ],
+      "checklist": [
+        "Design reservation UI & confirmation in Figma",
+        "Design error states in Figma (insufficient seats)",
+        "Implement frontend reservation flow",
+        "Implement backend reservation model and POST endpoint",
+        "Ensure atomic decrement",
+        "Send confirmation notifications"
+      ],
+      "apiContract": [
+        {
+          "endpoint": "/reservations",
+          "method": "POST",
+          "request": "{ tripId, seats, pickupPointId, paymentMethod }",
+          "response": "{ reservation, trip }",
+          "notes": "Reserve seats and emit events"
+        }
+      ]
+    },
+    {
+      "id": "TRIP-018",
+      "epic": "Trip Management",
+      "title": "Reserve Multiple Seats",
+      "description": "Allow passengers to reserve multiple seats with optional per-seat pickup.",
+      "priority": "Medium",
+      "labels": ["Epic: Trips", "Frontend", "Backend"],
+      "acceptanceCriteria": [
+        "Users can pick seats up to available",
+        "Each seat can have pickup point"
+      ],
+      "checklist": [
+        "UI to select seat quantity and pickup per seat",
+        "Backend validation for seat quantity",
+        "Update reservation model to include pickup point array",
+        "Add tests for multi-seat edge cases"
+      ],
+      "apiContract": [
+        {
+          "endpoint": "/reservations",
+          "method": "POST",
+          "request": "{ tripId, seats, pickupPoints: [{ seat, pickupPointId }], paymentMethod }",
+          "response": "{ reservation }",
+          "notes": "Share endpoint with single seat reservations"
+        }
+      ]
+    },
+    {
+      "id": "TRIP-019",
+      "epic": "Trip Management",
+      "title": "Block Full Trips",
+      "description": "Mark trips as full when no seats remain to prevent overbooking.",
+      "priority": "High",
+      "labels": ["Epic: Trips", "Backend", "Structure"],
+      "acceptanceCriteria": [
+        "Trip status updates to full",
+        "UI disables booking"
+      ],
+      "checklist": [
+        "Implement seat counter logic with atomic checks",
+        "Update trip status when seats == 0",
+        "Disable reservation in frontend",
+        "Notify driver that trip is full"
+      ],
+      "apiContract": [
+        {
+          "endpoint": "/trips/:id/status",
+          "method": "PUT",
+          "request": "{ status }",
+          "response": "{ trip }",
+          "notes": "Status transitions: scheduled -> full"
+        }
+      ]
+    },
+    {
+      "id": "TRIP-020",
+      "epic": "Trip Management",
+      "title": "Driver Views Passenger List",
+      "description": "Allow drivers to view passenger list with contact and pickup details.",
+      "priority": "Medium",
+      "labels": ["Epic: Trips", "Frontend", "Backend"],
+      "acceptanceCriteria": [
+        "Driver sees confirmed reservations with passenger details"
+      ],
+      "checklist": [
+        "Design driver passenger list screen in Figma",
+        "Implement backend GET /trips/:id/passengers",
+        "Implement frontend dashboard",
+        "Optional: export/message passengers"
+      ],
+      "apiContract": [
+        {
+          "endpoint": "/trips/:id/passengers",
+          "method": "GET",
+          "request": "Authorization header",
+          "response": "{ passengers: [{ passenger, seats, pickupPoints, paymentMethod }] }",
+          "notes": "Accessible to trip owner"
+        }
+      ]
+    },
+    {
+      "id": "SRCH-021",
+      "epic": "Search & Filters",
+      "title": "Filter by Departure Point",
+      "description": "Allow passengers to filter trips by departure point.",
+      "priority": "High",
+      "labels": ["Epic: Search", "Frontend", "Backend"],
+      "acceptanceCriteria": [
+        "Filter returns only matching trips",
+        "UI shows active filter"
+      ],
+      "checklist": [
+        "Add departure point filter UI in Figma",
+        "Implement frontend filter component",
+        "Add backend departure_point query param",
+        "Add tests for filter logic"
+      ],
+      "apiContract": [
+        {
+          "endpoint": "/trips",
+          "method": "GET",
+          "request": "?departure_point=string",
+          "response": "{ trips: [...] }",
+          "notes": "Combine with other query params"
+        }
+      ]
+    },
+    {
+      "id": "SRCH-022",
+      "epic": "Search & Filters",
+      "title": "Filter by Seats Available",
+      "description": "Allow filtering trips by minimum seats available.",
+      "priority": "Medium",
+      "labels": ["Epic: Search", "Frontend", "Backend"],
+      "acceptanceCriteria": [
+        "Filter accepts minimum seats and updates list"
+      ],
+      "checklist": [
+        "Design seats filter control",
+        "Implement frontend and backend min_seats parameter",
+        "Add tests"
+      ],
+      "apiContract": [
+        {
+          "endpoint": "/trips",
+          "method": "GET",
+          "request": "?min_seats=number",
+          "response": "{ trips: [...] }",
+          "notes": "Only include trips meeting threshold"
+        }
+      ]
+    },
+    {
+      "id": "SRCH-023",
+      "epic": "Search & Filters",
+      "title": "Filter by Time Range",
+      "description": "Allow passengers to filter trips by departure time range.",
+      "priority": "Medium",
+      "labels": ["Epic: Search", "Frontend", "Backend"],
+      "acceptanceCriteria": [
+        "Filter by start and end time",
+        "Results update accordingly"
+      ],
+      "checklist": [
+        "Design time range UI",
+        "Implement backend start_time and end_time filtering",
+        "Integrate in frontend and test"
+      ],
+      "apiContract": [
+        {
+          "endpoint": "/trips",
+          "method": "GET",
+          "request": "?start_time=ISO&end_time=ISO",
+          "response": "{ trips: [...] }",
+          "notes": "Handle timezone-aware comparisons"
+        }
+      ]
+    },
+    {
+      "id": "SRCH-024",
+      "epic": "Search & Filters",
+      "title": "Filter by Maximum Price",
+      "description": "Allow passengers to filter trips by a maximum price.",
+      "priority": "Medium",
+      "labels": ["Epic: Search", "Frontend", "Backend"],
+      "acceptanceCriteria": [
+        "Slider/input for max price",
+        "Results respect bound"
+      ],
+      "checklist": [
+        "Design max price filter",
+        "Implement backend max_price param",
+        "Wire frontend filter and tests"
+      ],
+      "apiContract": [
+        {
+          "endpoint": "/trips",
+          "method": "GET",
+          "request": "?max_price=number",
+          "response": "{ trips: [...] }",
+          "notes": "Combine with pagination and sorting"
+        }
+      ]
+    },
+    {
+      "id": "NOT-025",
+      "epic": "Notifications & Communication",
+      "title": "Trip Cancellation Notification",
+      "description": "Notify passengers immediately when a trip is cancelled by the driver.",
+      "priority": "High",
+      "labels": ["Epic: Notifications", "Backend", "Structure"],
+      "acceptanceCriteria": [
+        "Push notification sent to booked passengers",
+        "Email fallback provided"
+      ],
+      "checklist": [
+        "Design notification templates",
+        "Emit event on trip cancel",
+        "Send push/email notifications",
+        "Implement client-side handler",
+        "Add tests for delivery"
+      ],
+      "apiContract": [
+        {
+          "endpoint": "/trips/:id/cancel",
+          "method": "PUT",
+          "request": "{ reason? }",
+          "response": "{ trip }",
+          "notes": "Trigger notification pipeline"
+        }
+      ]
+    },
+    {
+      "id": "NOT-026",
+      "epic": "Notifications & Communication",
+      "title": "Trip Time Change Notification",
+      "description": "Notify passengers when driver changes departure time.",
+      "priority": "Medium",
+      "labels": ["Epic: Notifications", "Backend", "Frontend"],
+      "acceptanceCriteria": [
+        "Passengers receive updated time notification"
+      ],
+      "checklist": [
+        "Detect time change diff in backend",
+        "Send push/email notifications",
+        "Update trip timeline in UI"
+      ],
+      "apiContract": [
+        {
+          "endpoint": "/trips/:id",
+          "method": "PUT",
+          "request": "{ departureAt, ... }",
+          "response": "{ trip }",
+          "notes": "Emit notification when departureAt changes"
+        }
+      ]
+    },
+    {
+      "id": "NOT-027",
+      "epic": "Notifications & Communication",
+      "title": "Notify Driver of New Reservation",
+      "description": "Notify driver whenever a passenger reserves seats.",
+      "priority": "High",
+      "labels": ["Epic: Notifications", "Backend", "Structure"],
+      "acceptanceCriteria": [
+        "Driver receives push and dashboard updates"
+      ],
+      "checklist": [
+        "Emit event on reservation creation",
+        "Send push/email to driver",
+        "Update driver dashboard in real time"
+      ],
+      "apiContract": [
+        {
+          "endpoint": "/notifications/driver",
+          "method": "POST",
+          "request": "{ driverId, reservationId }",
+          "response": "{ ok: true }",
+          "notes": "System event triggered by reservation service"
+        }
+      ]
+    },
+    {
+      "id": "NOT-028",
+      "epic": "Notifications & Communication",
+      "title": "Passenger Cancels Reservation",
+      "description": "Allow passengers to cancel reservations, freeing seats and notifying driver.",
+      "priority": "Medium",
+      "labels": ["Epic: Notifications", "Frontend", "Backend"],
+      "acceptanceCriteria": [
+        "Seats increment back",
+        "Driver notified"
+      ],
+      "checklist": [
+        "Design cancel reservation UI",
+        "Implement backend cancellation",
+        "Release seats atomically",
+        "Notify driver and optionally manage refunds"
+      ],
+      "apiContract": [
+        {
+          "endpoint": "/reservations/:id",
+          "method": "DELETE",
+          "request": "{ reason? }",
+          "response": "{ ok: true, trip }",
+          "notes": "Emit seat availability events"
+        }
+      ]
+    },
+    {
+      "id": "NOT-029",
+      "epic": "Notifications & Communication",
+      "title": "Driver Cancels Trip",
+      "description": "Allow drivers to cancel trips, disable bookings, and notify passengers.",
+      "priority": "High",
+      "labels": ["Epic: Notifications", "Frontend", "Backend"],
+      "acceptanceCriteria": [
+        "Trip status becomes cancelled",
+        "Passengers notified immediately"
+      ],
+      "checklist": [
+        "Design driver cancellation UI + confirmation",
+        "Backend PUT /trips/:id/cancel",
+        "Notify passengers push/email",
+        "Mark reservations cancelled"
+      ],
+      "apiContract": [
+        {
+          "endpoint": "/trips/:id/cancel",
+          "method": "PUT",
+          "request": "{ reason? }",
+          "response": "{ trip }",
+          "notes": "Front-end must disable further reservations"
+        }
+      ]
+    },
+    {
+      "id": "NOT-030",
+      "epic": "Notifications & Communication",
+      "title": "Trip Reminder Notifications",
+      "description": "Schedule reminders for drivers and passengers prior to departure.",
+      "priority": "Medium",
+      "labels": ["Epic: Notifications", "Backend", "Structure"],
+      "acceptanceCriteria": [
+        "Reminders sent 60/30 minutes prior"
+      ],
+      "checklist": [
+        "Scheduler service for reminders",
+        "Push/email templates",
+        "Configurable reminder times"
+      ],
+      "apiContract": [
+        {
+          "endpoint": "/notifications/reminder",
+          "method": "POST",
+          "request": "{ tripId, sendAt, channel }",
+          "response": "{ ok: true }",
+          "notes": "Typically triggered by background job"
+        }
+      ]
+    },
+    {
+      "id": "RAT-031",
+      "epic": "Ratings & Safety",
+      "title": "Rate Driver",
+      "description": "Allow passengers to rate drivers after trips and display averages.",
+      "priority": "Medium",
+      "labels": ["Epic: Ratings", "Frontend", "Backend"],
+      "acceptanceCriteria": [
+        "Rating stored with trip and driver"
+      ],
+      "checklist": [
+        "Design star rating UI",
+        "Implement frontend submission flow",
+        "Backend POST /ratings/driver",
+        "Compute/show average rating"
+      ],
+      "apiContract": [
+        {
+          "endpoint": "/ratings/driver",
+          "method": "POST",
+          "request": "{ tripId, rating, comments? }",
+          "response": "{ rating }",
+          "notes": "Only allow for completed trips"
+        }
+      ]
+    },
+    {
+      "id": "RAT-032",
+      "epic": "Ratings & Safety",
+      "title": "Rate Passengers",
+      "description": "Allow drivers to rate passengers to maintain community trust.",
+      "priority": "Low",
+      "labels": ["Epic: Ratings", "Frontend", "Backend"],
+      "acceptanceCriteria": [
+        "Driver can submit ratings for passengers"
+      ],
+      "checklist": [
+        "Driver rating UI",
+        "Backend endpoint to save passenger ratings",
+        "Display passenger averages"
+      ],
+      "apiContract": [
+        {
+          "endpoint": "/ratings/passenger",
+          "method": "POST",
+          "request": "{ tripId, passengerId, rating, comments? }",
+          "response": "{ rating }",
+          "notes": "One rating per passenger per trip"
+        }
+      ]
+    },
+    {
+      "id": "RAT-033",
+      "epic": "Ratings & Safety",
+      "title": "Display Average Rating on Profiles",
+      "description": "Display average ratings on user profiles and trip cards.",
+      "priority": "Medium",
+      "labels": ["Epic: Ratings", "Frontend", "Backend", "Structure"],
+      "acceptanceCriteria": [
+        "Average rating visible on profiles",
+        "Average rating visible on trip cards"
+      ],
+      "checklist": [
+        "Add rating field to profile UI",
+        "Backend aggregation query",
+        "Cache averages and update on new rating"
+      ],
+      "apiContract": [
+        {
+          "endpoint": "/ratings/average/:userId",
+          "method": "GET",
+          "request": "{}",
+          "response": "{ userId, averageRating, votes }",
+          "notes": "Cache result and invalidate on rating create"
+        }
+      ]
+    },
+    {
+      "id": "SAFE-034",
+      "epic": "Ratings & Safety",
+      "title": "Encrypt Passwords & Protect PII",
+      "description": "Ensure passwords are hashed and PII is protected per privacy rules.",
+      "priority": "High",
+      "labels": ["Epic: Safety", "Backend", "Structure"],
+      "acceptanceCriteria": [
+        "Passwords hashed",
+        "PII stored/accessed securely"
+      ],
+      "checklist": [
+        "Use bcrypt/argon2 for passwords",
+        "Force TLS for transport",
+        "Limit PII exposure in APIs",
+        "Implement audit logs and retention policy"
+      ],
+      "apiContract": [
+        {
+          "endpoint": "/auth/register",
+          "method": "POST",
+          "request": "{ email, password, ... }",
+          "response": "{ user }",
+          "notes": "Hash passwords, redact PII in responses"
+        }
+      ]
+    },
+    {
+      "id": "SAFE-035",
+      "epic": "Ratings & Safety",
+      "title": "System Availability (Uptime)",
+      "description": "Provide monitoring and health checks to guarantee 99% availability.",
+      "priority": "High",
+      "labels": ["Epic: Safety", "Structure", "Backend"],
+      "acceptanceCriteria": [
+        "Monitoring and alerts in place",
+        "SLA defined"
+      ],
+      "checklist": [
+        "Setup monitoring (Prometheus/Sentry)",
+        "Configure alerts and on-call",
+        "Define maintenance windows and fallback"
+      ],
+      "apiContract": [
+        {
+          "endpoint": "/health",
+          "method": "GET",
+          "request": "{}",
+          "response": "{ ok: true }",
+          "notes": "Used for uptime monitoring"
+        }
+      ]
+    },
+    {
+      "id": "PAY-036",
+      "epic": "Payments (Future)",
+      "title": "Cash / Nequi Payment Option",
+      "description": "Allow passengers to mark payment method as cash or Nequi without processing transactions.",
+      "priority": "Low",
+      "labels": ["Epic: Payments", "Frontend", "Backend"],
+      "acceptanceCriteria": [
+        "Payment method recorded on reservation",
+        "Instructions displayed"
+      ],
+      "checklist": [
+        "Add payment method selector to reservation flow",
+        "Show payment instructions",
+        "Persist payment method in reservation record"
+      ],
+      "apiContract": [
+        {
+          "endpoint": "/reservations/:id/payment",
+          "method": "PUT",
+          "request": "{ paymentMethod }",
+          "response": "{ reservation }",
+          "notes": "No payment processing occurs"
+        }
+      ]
+    },
+    {
+      "id": "PAY-037",
+      "epic": "Payments (Future)",
+      "title": "Driver Payment History",
+      "description": "Allow drivers to review manual payment history for reservations.",
+      "priority": "Low",
+      "labels": ["Epic: Payments", "Frontend", "Backend"],
+      "acceptanceCriteria": [
+        "Driver sees reservations and payment status",
+        "Can mark payment received"
+      ],
+      "checklist": [
+        "Design earnings/history screen",
+        "Backend query for driver reservations",
+        "UI toggle to mark payment received"
+      ],
+      "apiContract": [
+        {
+          "endpoint": "/drivers/:id/payments",
+          "method": "GET",
+          "request": "{ from?, to? }",
+          "response": "{ payments: [...] }",
+          "notes": "Driver authenticated via token"
+        }
+      ]
+    },
+    {
+      "id": "PAY-038",
+      "epic": "Payments (Future)",
+      "title": "Online Payments Integration",
+      "description": "Prepare architecture for future online payments integration with Nequi/MercadoPago.",
+      "priority": "Low",
+      "labels": ["Epic: Payments", "Structure", "Backend"],
+      "acceptanceCriteria": [
+        "Architecture allows adding provider without refactor"
+      ],
+      "checklist": [
+        "Design payments abstraction",
+        "Research provider APIs",
+        "Leave hooks in frontend for payment flow"
+      ],
+      "apiContract": [
+        {
+          "endpoint": "/payments/checkout",
+          "method": "POST",
+          "request": "{ provider, amount, currency, reservationId, returnUrl }",
+          "response": "{ checkoutUrl, sessionId }",
+          "notes": "Placeholder until provider integrated"
+        }
+      ]
+    },
+    {
+      "id": "INF-039",
+      "epic": "Infra & Performance",
+      "title": "Responsive Design (UI)",
+      "description": "Ensure app works on phone, tablet, and desktop breakpoints.",
+      "priority": "High",
+      "labels": ["Epic: Infra", "Frontend", "Structure"],
+      "acceptanceCriteria": [
+        "Key screens render at common breakpoints"
+      ],
+      "checklist": [
+        "Define responsive breakpoints and grid",
+        "Implement responsive CSS",
+        "Test on mobile and desktop"
+      ],
+      "apiContract": []
+    },
+    {
+      "id": "INF-040",
+      "epic": "Infra & Performance",
+      "title": "Page & API Load Times < 2s",
+      "description": "Optimize frontend and backend to achieve sub-2s load times.",
+      "priority": "High",
+      "labels": ["Epic: Infra", "Frontend", "Backend", "Structure"],
+      "acceptanceCriteria": [
+        "Home/list pages meet performance targets",
+        "API latency within target"
+      ],
+      "checklist": [
+        "Evaluate SSR/SSG strategy",
+        "Add CDN caching and API caching",
+        "Optimize assets and add performance monitoring"
+      ],
+      "apiContract": []
+    },
+    {
+      "id": "INF-041",
+      "epic": "Infra & Performance",
+      "title": "Scalable Architecture",
+      "description": "Design stateless architecture with autoscaling and managed services.",
+      "priority": "High",
+      "labels": ["Epic: Infra", "Structure", "Backend"],
+      "acceptanceCriteria": [
+        "Stateless API, scalable DB, autoscaling configured"
+      ],
+      "checklist": [
+        "Deploy to cloud with autoscaling",
+        "Use managed MongoDB Atlas/Redis",
+        "Define health checks and load testing plan"
+      ],
+      "apiContract": []
+    },
+    {
+      "id": "INF-042",
+      "epic": "Infra & Performance",
+      "title": "API Integrations (Maps, Waze, TransMilenio)",
+      "description": "Integrate Maps, Waze, and optionally TransMilenio data with fallbacks.",
+      "priority": "High",
+      "labels": ["Epic: Infra", "Structure", "Backend"],
+      "acceptanceCriteria": [
+        "Maps used for geocoding/directions",
+        "Waze deep-link available",
+        "TransMilenio data consumed if available"
+      ],
+      "checklist": [
+        "Integrate Google Maps APIs",
+        "Implement Waze deep-link",
+        "Ingest TransMilenio data",
+        "Create graceful fallback flows"
+      ],
+      "apiContract": [
+        {
+          "endpoint": "/integrations/maps",
+          "method": "POST",
+          "request": "{ origin, destination, mode, provider }",
+          "response": "{ routes, eta, provider }",
+          "notes": "Wraps Google Maps/Waze/TransMilenio"
+        },
+        {
+          "endpoint": "/integrations/transmilenio",
+          "method": "GET",
+          "request": "{ stopId? }",
+          "response": "{ stops: [...], schedules: [...] }",
+          "notes": "Optional open data integration"
+        }
+      ]
+    },
+    {
+      "id": "INF-043",
+      "epic": "Infra & Performance",
+      "title": "Real-time Updates & Sockets",
+      "description": "Provide real-time seat availability and trip updates via sockets or realtime service.",
+      "priority": "High",
+      "labels": ["Epic: Infra", "Structure", "Backend", "Frontend"],
+      "acceptanceCriteria": [
+        "Seat counts update instantly",
+        "Trip changes broadcast"
+      ],
+      "checklist": [
+        "Select socket strategy (Socket.IO, etc.)",
+        "Emit events on reservation create/cancel, trip update",
+        "Frontend listeners update UI"
+      ],
+      "apiContract": [
+        {
+          "endpoint": "/socket.io",
+          "method": "WS",
+          "request": "Events: reservation:created, reservation:cancelled, trip:updated",
+          "response": "Realtime events with payloads",
+          "notes": "Authenticate socket connections"
+        }
+      ]
+    },
+    {
+      "id": "UX-044",
+      "epic": "Infra & Performance / Notifications & Communication",
+      "title": "Error States for Forms (Desktop & Mobile)",
+      "description": "Provide clear error state designs for key forms across devices.",
+      "priority": "High",
+      "labels": ["Epic: Infra", "Epic: Notifications", "Structure", "Frontend"],
+      "acceptanceCriteria": [
+        "All main forms display proper error states",
+        "Fields with errors visually highlighted",
+        "Error messages appear below fields or banner",
+        "Consistent typography/colors/icons",
+        "Designs provided for desktop and mobile"
+      ],
+      "checklist": [
+        "Design error states in Figma for registration/login/password recovery",
+        "Design error states for vehicle registration, trip creation, reservation",
+        "Add error messages for invalid inputs",
+        "Ensure consistent layout and hierarchy",
+        "Export screens as error_state_[form].png",
+        "Review accessibility",
+        "Validate design with dev team"
+      ],
+      "apiContract": []
+    }
+  ]
+}

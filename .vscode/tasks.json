@@ -1,0 +1,36 @@
+{
+  "version": "2.0.0", // VS Code tasks schema version (2.x is the current, stable format).
+
+  "tasks": [
+    {
+      // Human-readable task name as shown in "Run Task" palette.
+      "label": "Wheels: Run All",
+
+      // "shell" type runs the command inside an OS shell (PowerShell here),
+      // allowing us to pass flags and execute a script file.
+      "type": "shell",
+
+      // Base command to execute. We call PowerShell so we can pass -ExecutionPolicy/-File conveniently.
+      "command": "powershell",
+
+      // Arguments for PowerShell:
+      // - ExecutionPolicy Bypass: allows running the script without changing global policy.
+      // - File: points to our one-click script that installs deps and launches FE/BE.
+      "args": [
+        "-ExecutionPolicy", "Bypass",
+        "-File", "${workspaceFolder}/scripts/run-all.ps1"
+      ],
+
+      // Presentation options:
+      // - reveal: always show the terminal when task runs (useful for observing output).
+      // - panel: open in a new terminal panel to keep logs separate.
+      "presentation": { "reveal": "always", "panel": "new" },
+
+      // Group as a "build" task and set as default so it can be triggered with default keybindings if desired.
+      "group": { "kind": "build", "isDefault": true },
+
+      // No problem matcher: this task is not scanning compiler output for errors.
+      "problemMatcher": []
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "source": {
+    "planeacionPdf": "Documentacion/Wheels Sabana - Planeacion.pdf",
+    "ticketsPdf": "Documentacion/WHEELS UNISABANA.pdf",
+    "checklistsJson": "Documentacion/wheels-sabana.json",
+    "note": "No se pudo leer /Documentacion automáticamente. Complete este archivo tras revisar los documentos."
+  },
+  "tickets": [
+    {
+      "id": "AUTH-001",
+      "title": "Auth - Registro/Login con correo institucional",
+      "priority": "alta",
+      "checklist": [
+        "Validación @unisabana.edu.co",
+        "JWT",
+        "Endpoint /auth/me"
+      ],
+      "designRef": null,
+      "frontendFeature": "Auth"
+    },
+    {
+      "id": "MAPS-002",
+      "title": "Calcular distancia (Google Maps Distance Matrix)",
+      "priority": "alta",
+      "checklist": [
+        "Consulta API Google",
+        "Cache Redis 5 min",
+        "Endpoint /maps/distance"
+      ],
+      "designRef": "Designs/Calculate Distance (System).png",
+      "frontendFeature": "CalculateDistanceSystem"
+    },
+    {
+      "id": "DRV-003",
+      "title": "Agregar puntos de recogida (Conductor)",
+      "priority": "media",
+      "checklist": [
+        "UI para agregar puntos",
+        "Persistir puntos en backend",
+        "Validar límites"
+      ],
+      "designRef": "Designs/Add Pickup Points (Driver).png",
+      "frontendFeature": "AddPickupPointsDriver"
+    }
+  ]
+}

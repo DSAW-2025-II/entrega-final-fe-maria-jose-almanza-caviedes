@@ -1,0 +1,31 @@
+<!-- Declara el tipo de documento como HTML5. Activa el "standards mode" en los navegadores
+     para un comportamiento consistente y compatible con las especificaciones modernas. -->
+<!doctype html>
+
+<!-- Elemento raíz del documento. El atributo lang="es" indica el idioma principal (español),
+     mejorando accesibilidad (lectores de pantalla) y SEO (indexación por idioma). -->
+<html lang="es">
+  <head>
+    <!-- Define la codificación de caracteres como UTF-8. Evita problemas con acentos y caracteres especiales
+         en todas las plataformas y navegadores. Es un requisito estándar en aplicaciones modernas. -->
+    <meta charset="UTF-8" />
+
+    <!-- Configura el viewport para diseño responsive (mobile-first). width=device-width hace que el ancho lógico
+         coincida con el del dispositivo; initial-scale=1 establece el zoom inicial, fundamental para que Tailwind/Responsive funcionen. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+    <!-- Título de la pestaña del navegador y etiqueta usada por motores de búsqueda.
+         No afecta la lógica, pero sí la experiencia de usuario y la identificación de la app. -->
+    <title>Wheels Sabana</title>
+  </head>
+  <body>
+    <!-- Nodo contenedor donde React montará la aplicación. Debe coincidir con el selector usado por ReactDOM
+         (document.getElementById('root') en src/main.jsx). Mantener este ID es crítico para que la app renderice. -->
+    <div id="root"></div>
+
+    <!-- Carga el punto de entrada de la app como módulo ES (type="module"), lo que habilita import/export nativos.
+         Vite resuelve esta ruta durante el desarrollo y construcción. En dev, sirve /src/main.jsx desde su servidor;
+         en producción, se reemplaza por assets compilados. No requiere "defer" porque los módulos son diferidos por defecto. -->
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

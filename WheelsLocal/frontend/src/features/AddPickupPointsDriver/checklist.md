@@ -1,0 +1,4 @@
+- [ ] UI para agregar/editar puntos
+- [ ] Validaciones de lat/lng
+- [ ] Guardar en backend
+- [ ] Confirmación visual

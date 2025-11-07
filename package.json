@@ -1,0 +1,24 @@
+{
+  "name": "wheels-sabana",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev": "npm run dev:win",
+    "build": "npm run build -w frontend",
+    "start": "npm run start -w backend",
+    "dev:fe": "npm run dev -w frontend",
+  "dev:be": "npm run start -w backend",
+    "dev:win": "npx concurrently -n FE,BE -c green,blue \"npm:dev:fe\" \"npm:dev:be\"",
+    "setup": "cd frontend && npm install && cd ../backend && npm install",
+    "run:all": "powershell -ExecutionPolicy Bypass -File ./scripts/run-all.ps1",
+    "run:all:nodocker": "powershell -ExecutionPolicy Bypass -File ./scripts/run-all.ps1 -NoDocker",
+    "quickstart": "npm run setup && npm run dev"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.1"
+  },
+  "engines": { "node": ">=18.0.0" }
+}

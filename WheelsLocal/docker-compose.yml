@@ -1,0 +1,44 @@
+version: '3.9'  # Versión del esquema de Compose. 3.9 es compatible con Docker Desktop actual y define la sintaxis disponible.
+
+services:  # Sección de servicios: cada uno es un contenedor que se orquesta en conjunto.
+  frontend:
+    build: ./frontend  # Construye una imagen desde el Dockerfile ubicado en ./frontend (aisla dependencias del FE).
+    container_name: frontend  # Nombre explícito del contenedor para fácil identificación en docker ps/logs.
+    restart: always  # Política de reinicio: si el contenedor se detiene, Docker intenta reiniciarlo automáticamente.
+    ports:
+      - "5173:5173"  # Mapea puerto 5173 del host al 5173 del contenedor (Vite dev server por defecto).
+    environment:
+      - CHOKIDAR_USEPOLLING=true  # Fuerza polling de archivos (útil en Docker/WSL para que hot-reload detecte cambios).
+    volumes:
+      - ./frontend:/app  # Monta el código fuente local para desarrollo en vivo (sin reconstruir imagen).
+    command: npx vite --host 0.0.0.0 --port 5173  # Comando de inicio del FE; usa Vite en lugar de React scripts.
+    depends_on:
+      - backend  # Asegura que el FE intente arrancar después de que el backend haya sido iniciado (orden lógico).
+
+  backend:
+    build: ./backend  # Construye imagen desde ./backend (instala deps Node separadas del FE).
+    container_name: backend  # Nombre del contenedor BE.
+    restart: always  # Reinicio automático ante fallos temporales (útil en dev).
+    ports:
+      - "4000:4000"  # Expone el puerto del BE (interno y externo en 4000); mantén PORT=4000 en env.
+    environment:
+      - PORT=4000  # Puerto en el que Express escuchará dentro del contenedor (debe concordar con app.listen).
+      - NODE_ENV=development  # Modo desarrollo: logs más verbosos y hot-reload con nodemon.
+      - MONGO_URI=mongodb://mongo:27017/wheels  # Conexión a Mongo usando el nombre del servicio "mongo" como host.
+    volumes:
+      - ./backend:/app  # Monta el código del BE para hot-reload (nodemon) sin reconstruir la imagen.
+    command: npm run dev  # Usa nodemon para recargar el servidor ante cambios (requiere script "dev").
+    depends_on:
+      - mongo  # Garantiza que Mongo esté iniciado antes de levantar el BE (orden de inicio, no readiness).
+
+  mongo:
+    image: mongo  # Usa imagen oficial de MongoDB (última etiqueta estable por defecto).
+    container_name: mongo  # Nombre del contenedor DB.
+    restart: always  # Reintenta iniciar ante caídas (persistencia en volumen evita pérdida de datos).
+    ports:
+      - "27017:27017"  # Expone Mongo a localhost:27017 para cliente local (MongoDB Compass, tests, etc.).
+    volumes:
+      - mongo_data:/data/db  # Volumen nombrado para persistir datos de Mongo fuera del ciclo de vida del contenedor.
+
+volumes:
+  mongo_data:  # Declaración del volumen persistente; Docker lo crea y gestiona automáticamente.
