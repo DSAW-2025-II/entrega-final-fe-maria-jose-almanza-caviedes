@@ -44,7 +44,7 @@ Los componentes de features referencian esas rutas públicas.
      - Frontend: http://localhost:5173
      - Backend: http://localhost:4000
 
-## Checklist inmediato (haz esto ya)
+## Checklist inmediato 
 1) Cierra todas las terminales abiertas (para evitar procesos colgados).
 2) Abre PowerShell en la raíz del proyecto:
    - powershell -ExecutionPolicy Bypass -File .\scripts\run-all.ps1
@@ -306,3 +306,4 @@ Si ves “open //./pipe/dockerDesktopLinuxEngine”:
   - backend/.env → MONGO_URI=mongodb+srv://USER:PASS@CLUSTER.mongodb.net/wheels
 - Redis es opcional (el backend arranca sin Redis).
 - Reinicia backend: cd backend && npm run dev
+
