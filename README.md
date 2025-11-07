@@ -1,5 +1,8 @@
 # Wheels Sabana
 
+## BackEnd: https://wheels-unisabana-2.onrender.com/api-docs/
+
+
 Plataforma de movilidad universitaria: React + Node + Express + MongoDB + Redis.
 
 ## Flujo principal (según reglas y tickets)
@@ -306,4 +309,5 @@ Si ves “open //./pipe/dockerDesktopLinuxEngine”:
   - backend/.env → MONGO_URI=mongodb+srv://USER:PASS@CLUSTER.mongodb.net/wheels
 - Redis es opcional (el backend arranca sin Redis).
 - Reinicia backend: cd backend && npm run dev
+
 
