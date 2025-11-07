@@ -17,7 +17,7 @@
    - Incluyen puntos de recogida oficiales (Puente Madera, Ad Portas, etc.).
 4. **Publicación de viajes (Conductor)**
    - Selecciona ruta, puntos de recogida, horario, vehículo y tarifa.
-   - Puede lanzar navegación en Waze o Google Maps.
+   - Puede lanzar navegación en Waze o abrir la ruta calculada vía OpenRouteService.
 5. **Reserva de cupos (Pasajero)**
    - Selecciona viaje disponible, punto de recogida y cupos (individual o múltiples).
    - Recibe confirmación/estado de la reserva.
@@ -31,7 +31,7 @@
    - Se conserva historial de viajes y pagos manuales.
 
 ## Integraciones Clave
-- **Google Maps Platform**: geocoding, autocompletado, Distance Matrix, Directions y visualización de rutas.
+- **OpenRouteService**: geocoding (opcional), direcciones, cálculo de distancia y tiempos estimados.
 - **Waze Deep Links / Transport SDK**: navegación en tiempo real con tráfico actualizado.
 - **TransMilenio (datos abiertos Bogotá)**: paraderos y rutas oficiales para viajes multimodales.
 - **Firebase** (opcional): autenticación, notificaciones push y sincronización en tiempo real.

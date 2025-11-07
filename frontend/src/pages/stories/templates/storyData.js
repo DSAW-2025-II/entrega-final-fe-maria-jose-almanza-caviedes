@@ -333,13 +333,13 @@ export const stories = [
     epic: "Trip Management",
     title: "Calculate Distance & Estimated Time (System)",
     description:
-      "As a system, I want to calculate distance and ETA using Google Maps so users get accurate trip info.",
+      "As a system, I want to calculate distance and ETA using OpenRouteService so users get accurate trip info.",
     acceptanceCriteria: [
       "Distance and ETA stored and displayed in trip details.",
       "Request rate limits handled gracefully."
     ],
     checklist: [
-      "Integrate Google Maps Directions / Distance Matrix APIs.",
+  "Integrate OpenRouteService directions API.",
       "Backend service to calculate and cache distances.",
       "Display distance and ETA in frontend trip details.",
       "Implement caching (Redis) for repeated queries."
@@ -349,7 +349,7 @@ export const stories = [
     apiContract: {
       endpoint: "/maps/calculate",
       method: "POST",
-      sideNote: "Internal service using Google Maps APIs. Cache repeated distance calculations for efficiency."
+  sideNote: "Internal service using OpenRouteService. Cache repeated distance calculations for efficiency."
     }
   },
   {
@@ -999,7 +999,7 @@ export const stories = [
       "Maps used for geocoding/directions; Waze deep-link available; TransMilenio data consumed if available."
     ],
     checklist: [
-      "Integrate Google Maps (Key management).",
+  "Integrate OpenRouteService (key management).",
       "Implement Waze deep-link and driver option to open Waze.",
       "Ingest TransMilenio open data for paradas if applicable.",
       "Create fallback flows if APIs fail (graceful degrade)."

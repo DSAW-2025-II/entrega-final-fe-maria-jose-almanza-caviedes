@@ -1,4 +1,4 @@
-// Google Distance Matrix integration with optional Redis caching to reduce latency and quota usage.
+// OpenRouteService directions integration with optional Redis caching to reduce latency and quota usage.
 import axios from "axios";
 import { redis } from "../utils/redis.js";
 
@@ -10,34 +10,79 @@ export class MapsServiceError extends Error {
     this.statusCode = options.statusCode || 500;
     this.providerStatus = options.providerStatus;
     this.cacheHit = options.cacheHit || false;
+    this.providerMessage = options.providerMessage;
   }
 }
 
-const RATE_LIMIT_STATUSES = new Set(["OVER_QUERY_LIMIT", "RESOURCE_EXHAUSTED"]);
-const ZERO_RESULTS_STATUSES = new Set(["ZERO_RESULTS", "NOT_FOUND"]);
+const MODE_PROFILE_MAP = {
+  driving: "driving-car",
+  walking: "foot-walking",
+  bicycling: "cycling-regular"
+};
 
-// Helper: build Distance Matrix request URL using URLSearchParams to handle encoding safely.
-// Using explicit origins/destinations ensures we pass either "lat,lng" pairs or free-form addresses.
-function buildUrl(origin, destination, key, mode) {
-  const base = "https://maps.googleapis.com/maps/api/distancematrix/json";
+function buildCacheKey(origin, destination, profile) {
+  return `ors:${profile}:${origin}|${destination}`;
+}
+
+function parsePoint(point, label) {
+  if (typeof point === "string") {
+    const trimmed = point.trim();
+    if (!trimmed) {
+      throw new MapsServiceError(`${label} requerido`, { statusCode: 400 });
+    }
+    const parts = trimmed.split(",");
+    if (parts.length !== 2) {
+      throw new MapsServiceError(`Formato inválido para ${label}. Usa lat,lng`, { statusCode: 400 });
+    }
+    const lat = Number(parts[0]);
+    const lng = Number(parts[1]);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      throw new MapsServiceError(`Coordenadas inválidas para ${label}`, { statusCode: 400 });
+    }
+    return { lat, lng };
+  }
+
+  if (point && typeof point === "object") {
+    const lat = Number(point.lat);
+    const lng = Number(point.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      throw new MapsServiceError(`Coordenadas inválidas para ${label}`, { statusCode: 400 });
+    }
+    return { lat, lng };
+  }
+
+  throw new MapsServiceError(`${label} requerido`, { statusCode: 400 });
+}
+
+function toLonLat({ lat, lng }) {
+  return `${lng},${lat}`;
+}
+
+function buildUrl(originLonLat, destinationLonLat, key, profile) {
+  const base = `https://api.openrouteservice.org/v2/directions/${profile}`;
   const params = new URLSearchParams({
-    origins: origin,
-    destinations: destination,
-    key,
-    mode
+    api_key: key,
+    start: originLonLat,
+    end: destinationLonLat
   });
   return `${base}?${params.toString()}`;
 }
 
-function buildCacheKey(origin, destination, mode) {
-  return `dm:${mode}:${origin}|${destination}`;
-}
+async function fetchDirections(origin, destination, { mode = "driving" } = {}) {
+  const key = process.env.OPENROUTESERVICE_KEY;
+  if (!key) throw new MapsServiceError("OPENROUTESERVICE_KEY not set", { statusCode: 500 });
 
-async function fetchDistanceMatrix(origin, destination, { mode = "driving" } = {}) {
-  const key = process.env.GOOGLE_MAPS_KEY;
-  if (!key) throw new MapsServiceError("GOOGLE_MAPS_KEY not set", { statusCode: 500 });
+  const profile = MODE_PROFILE_MAP[mode];
+  if (!profile) {
+    throw new MapsServiceError("Modo de transporte no soportado", { statusCode: 400 });
+  }
 
-  const cacheKey = buildCacheKey(origin, destination, mode);
+  const originPoint = parsePoint(origin, "origin");
+  const destinationPoint = parsePoint(destination, "destination");
+  const originLonLat = toLonLat(originPoint);
+  const destinationLonLat = toLonLat(destinationPoint);
+
+  const cacheKey = buildCacheKey(originLonLat, destinationLonLat, profile);
   let cacheHit = false;
   let data;
 
@@ -52,22 +97,26 @@ async function fetchDistanceMatrix(origin, destination, { mode = "driving" } = {
   }
 
   if (!data) {
-    const url = buildUrl(origin, destination, key, mode);
+    const url = buildUrl(originLonLat, destinationLonLat, key, profile);
     let response;
     try {
       response = await axios.get(url, { timeout: 10000 });
     } catch (error) {
       const statusCode = error?.response?.status;
+      const providerMessage = error?.response?.data?.error?.message || error?.message;
       if (statusCode === 429) {
-        throw new MapsServiceError("Rate limit exceeded", {
+        throw new MapsServiceError("Límite de consultas alcanzado", {
           statusCode: 429,
-          providerStatus: "HTTP_429"
+          providerStatus: "HTTP_429",
+          cause: error
         });
       }
-      throw new MapsServiceError("Distance Matrix request failed", {
-        statusCode: 502,
+      throw new MapsServiceError("Solicitud a OpenRouteService falló", {
+        statusCode: statusCode || 502,
         providerStatus: statusCode,
-        cause: error
+        cacheHit,
+        cause: error,
+        providerMessage
       });
     }
     data = response.data;
@@ -78,76 +127,31 @@ async function fetchDistanceMatrix(origin, destination, { mode = "driving" } = {
     }
   }
 
-  return { data, cacheHit };
+  return { data, cacheHit, profile, originPoint, destinationPoint };
 }
 
 // Retrieve distance and ETA. Legacy helper kept for backward compatibility.
 export async function getDistanceMatrix(origin, destination, options = {}) {
-  const { data } = await fetchDistanceMatrix(origin, destination, options);
+  const { data } = await fetchDirections(origin, destination, options);
   return data;
 }
 
 export async function calculateDistance({ origin, destination, mode = "driving" }) {
-  const { data, cacheHit } = await fetchDistanceMatrix(origin, destination, { mode });
+  const { data, cacheHit, profile, originPoint, destinationPoint } = await fetchDirections(origin, destination, {
+    mode
+  });
 
-  const providerStatus = data?.status;
-  if (!providerStatus) {
-    throw new MapsServiceError("Respuesta inválida del proveedor", { statusCode: 502, cacheHit });
-  }
+  const feature = data?.features?.[0];
+  const summary = feature?.properties?.summary;
+  const segment = feature?.properties?.segments?.[0];
 
-  if (RATE_LIMIT_STATUSES.has(providerStatus)) {
-    throw new MapsServiceError("Límite de consultas alcanzado", {
-      statusCode: 429,
-      providerStatus,
-      cacheHit
-    });
-  }
-
-  if (providerStatus !== "OK") {
-    throw new MapsServiceError("Error en Distance Matrix", {
-      statusCode: 502,
-      providerStatus,
-      cacheHit
-    });
-  }
-
-  const element = data?.rows?.[0]?.elements?.[0];
-  if (!element) {
-    throw new MapsServiceError("Respuesta sin elementos", { statusCode: 502, cacheHit });
-  }
-
-  const elementStatus = element.status;
-  if (RATE_LIMIT_STATUSES.has(elementStatus)) {
-    throw new MapsServiceError("Límite de consultas alcanzado", {
-      statusCode: 429,
-      providerStatus: elementStatus,
-      cacheHit
-    });
-  }
-
-  if (ZERO_RESULTS_STATUSES.has(elementStatus)) {
-    throw new MapsServiceError("No se encontraron rutas entre origen y destino", {
-      statusCode: 404,
-      providerStatus: elementStatus,
-      cacheHit
-    });
-  }
-
-  if (elementStatus !== "OK") {
-    throw new MapsServiceError("Error en elemento de Distance Matrix", {
-      statusCode: 502,
-      providerStatus: elementStatus,
-      cacheHit
-    });
-  }
-
-  const distanceMeters = element?.distance?.value;
-  const durationSeconds = element?.duration?.value;
+  const distanceMeters = summary?.distance ?? segment?.distance;
+  const durationSeconds = summary?.duration ?? segment?.duration;
 
   if (typeof distanceMeters !== "number" || typeof durationSeconds !== "number") {
     throw new MapsServiceError("Distancia o duración ausente", {
       statusCode: 502,
-      providerStatus: elementStatus,
+      providerStatus: "NO_SUMMARY",
       cacheHit
     });
   }
@@ -156,14 +160,12 @@ export async function calculateDistance({ origin, destination, mode = "driving" 
   const durationMinutes = Math.round(durationSeconds / 60);
 
   const providerMeta = {
-    originAddress: data?.origin_addresses?.[0] ?? null,
-    destinationAddress: data?.destination_addresses?.[0] ?? null,
-    distanceText: element?.distance?.text ?? null,
-    durationText: element?.duration?.text ?? null,
-    fare: element?.fare ?? null,
-    status: elementStatus,
+    provider: "openrouteservice",
+    profile,
     cacheHit,
-    mode
+    status: "OK",
+    origin: originPoint,
+    destination: destinationPoint
   };
 
   return {

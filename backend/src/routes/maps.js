@@ -1,16 +1,21 @@
-// Maps integration endpoints (Distance Matrix) proxy to Google API via mapsService.
+// Maps integration endpoints proxy to OpenRouteService via mapsService.
 import { Router } from "express";
 import { calculateDistance, getDistanceMatrix, MapsServiceError } from "../services/mapsService.js";
 
 const router = Router();
 
-const ALLOWED_MODES = new Set(["driving", "walking", "bicycling", "transit"]);
+const ALLOWED_MODES = new Set(["driving", "walking", "bicycling"]);
 
 function normalizePoint(value, label) {
   if (typeof value === "string") {
     const trimmed = value.trim();
-    if (trimmed) return trimmed;
-    throw new Error(`${label} requerido`);
+    if (!trimmed) throw new Error(`${label} requerido`);
+    const parts = trimmed.split(",");
+    if (parts.length !== 2) throw new Error(`Formato inválido para ${label}. Usa lat,lng`);
+    const lat = Number(parts[0]);
+    const lng = Number(parts[1]);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) throw new Error(`Coordenadas inválidas para ${label}`);
+    return `${lat},${lng}`;
   }
 
   if (value && typeof value === "object") {

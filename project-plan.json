@@ -397,7 +397,7 @@
       "id": "TRIP-014",
       "epic": "Trip Management",
       "title": "Calculate Distance & Estimated Time",
-      "description": "Integrate Google Maps APIs to calculate distance and ETA for trips with caching.",
+      "description": "Integrate OpenRouteService APIs to calculate distance and ETA for trips with caching.",
       "priority": "High",
       "labels": ["Epic: Trips", "Backend", "Structure"],
       "acceptanceCriteria": [
@@ -405,7 +405,7 @@
         "Handle request limits gracefully"
       ],
       "checklist": [
-        "Integrate Google Maps Directions/Distance Matrix",
+        "Integrate OpenRouteService directions API",
         "Implement backend service with caching (Redis)",
         "Expose data in frontend trip details",
         "Handle rate limits"
@@ -1118,7 +1118,7 @@
         "TransMilenio data consumed if available"
       ],
       "checklist": [
-        "Integrate Google Maps APIs",
+        "Integrate OpenRouteService APIs",
         "Implement Waze deep-link",
         "Ingest TransMilenio data",
         "Create graceful fallback flows"
@@ -1129,7 +1129,7 @@
           "method": "POST",
           "request": "{ origin, destination, mode, provider }",
           "response": "{ routes, eta, provider }",
-          "notes": "Wraps Google Maps/Waze/TransMilenio"
+          "notes": "Wraps OpenRouteService/Waze/TransMilenio"
         },
         {
           "endpoint": "/integrations/transmilenio",

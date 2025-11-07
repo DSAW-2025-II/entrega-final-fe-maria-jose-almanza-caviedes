@@ -162,17 +162,16 @@ Consolidated API contract per user story. Cada sección incluye endpoint(s), mé
     "distanceKm": number,
     "durationMinutes": number,
     "providerMeta": {
-      "originAddress": "string",
-      "destinationAddress": "string",
-      "distanceText": "string",
-      "durationText": "string",
+      "provider": "openrouteservice",
+      "profile": "driving-car" | "foot-walking" | "cycling-regular",
       "status": "OK",
       "cacheHit": boolean,
-      "mode": "string"
+      "origin": { "lat": number, "lng": number },
+      "destination": { "lat": number, "lng": number }
     }
   }
   ```
-- **Notes:** Cachear resultados (Redis), propagar `cacheHit` en la respuesta y traducir límites de Google a HTTP 429.
+- **Notes:** Cachear resultados (Redis), propagar `cacheHit` en la respuesta y traducir límites de OpenRouteService a HTTP 429. El servicio requiere coordenadas (lat,lng) en el cuerpo.
 
 ### Suggest Tariff (System)
 - **Endpoint:** `/trips/tariff/suggest`
@@ -363,7 +362,7 @@ Consolidated API contract per user story. Cada sección incluye endpoint(s), mé
 ### API Integrations (Maps, Waze, TransMilenio)
 - **Endpoint:** `/integrations/maps`
 - **Method:** `POST`
-- **Request Payload:** `{ "origin": { "lat": number, "lng": number }, "destination": { "lat": number, "lng": number }, "mode": "driving" | "transit", "provider": "google" | "waze" }`
+- **Request Payload:** `{ "origin": { "lat": number, "lng": number }, "destination": { "lat": number, "lng": number }, "mode": "driving" | "walking" | "bicycling", "provider": "openrouteservice" | "waze" }`
 - **Response Payload (200):** `{ "routes": [ ... ], "eta": number, "provider": "string" }`
 - **Endpoint:** `/integrations/transmilenio`
 - **Method:** `GET`

@@ -261,19 +261,20 @@ export default function TripForm() {
     }
   }
 
-  function toDistancePoint(value) {
-    if (!value) return "";
+  function toDistancePoint(value, label) {
+    if (!value) throw new Error(`Ingresa coordenadas de ${label}`);
     const trimmed = value.trim();
-    if (!trimmed) return "";
+    if (!trimmed) throw new Error(`Ingresa coordenadas de ${label}`);
     const parts = trimmed.split(",");
-    if (parts.length === 2) {
-      const lat = Number(parts[0]);
-      const lng = Number(parts[1]);
-      if (Number.isFinite(lat) && Number.isFinite(lng)) {
-        return { lat, lng };
-      }
+    if (parts.length !== 2) {
+      throw new Error(`Usa formato lat,lng para ${label}`);
     }
-    return trimmed;
+    const lat = Number(parts[0]);
+    const lng = Number(parts[1]);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      throw new Error(`Coordenadas inválidas para ${label}`);
+    }
+    return { lat, lng };
   }
 
   async function handleDistanceFetch() {
@@ -288,9 +289,21 @@ export default function TripForm() {
       return;
     }
 
+    let parsedOrigin;
+    let parsedDestination;
+
+    try {
+      parsedOrigin = toDistancePoint(form.origin, "origen");
+      parsedDestination = toDistancePoint(form.destination, "destino");
+    } catch (coordinateError) {
+      setCalculatingDistance(false);
+      setError(coordinateError.message);
+      return;
+    }
+
     const payload = {
-      origin: toDistancePoint(form.origin),
-      destination: toDistancePoint(form.destination),
+      origin: parsedOrigin,
+      destination: parsedDestination,
       mode: "driving"
     };
 
@@ -302,7 +315,7 @@ export default function TripForm() {
         distanceKm: data?.distanceKm != null ? String(data.distanceKm) : prev.distanceKm,
         durationMinutes: data?.durationMinutes != null ? String(data.durationMinutes) : prev.durationMinutes
       }));
-      setDistanceFeedback("Distancia estimada con Google Maps actualizada");
+      setDistanceFeedback("Distancia estimada actualizada desde OpenRouteService");
     } catch (err) {
       const message =
         err?.response?.data?.error ||
@@ -445,7 +458,7 @@ export default function TripForm() {
                 type="text"
                 value={form.origin}
                 onChange={(event) => setForm((prev) => ({ ...prev, origin: event.target.value }))}
-                placeholder="Campus Puente del Común"
+                placeholder="Coordenadas lat,lng (ej: 4.65,-74.05)"
                 className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
               />
             </label>
@@ -455,7 +468,7 @@ export default function TripForm() {
                 type="text"
                 value={form.destination}
                 onChange={(event) => setForm((prev) => ({ ...prev, destination: event.target.value }))}
-                placeholder="Bogotá"
+                placeholder="Coordenadas lat,lng (ej: 4.86,-74.03)"
                 className="mt-1 w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
               />
             </label>
@@ -522,7 +535,7 @@ export default function TripForm() {
               onClick={handleDistanceFetch}
               disabled={calculatingDistance}
             >
-              {calculatingDistance ? "Calculando distancia..." : "Calcular distancia con Google"}
+              {calculatingDistance ? "Calculando distancia..." : "Calcular distancia (OpenRouteService)"}
             </button>
             <button
               type="button"

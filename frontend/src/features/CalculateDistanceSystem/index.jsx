@@ -5,23 +5,23 @@ const hero = "/Designs/Calculate Distance (System).png";
 const MODES = [
   { label: "Conduciendo", value: "driving" },
   { label: "Caminando", value: "walking" },
-  { label: "Bicicleta", value: "bicycling" },
-  { label: "Transporte público", value: "transit" }
+  { label: "Bicicleta", value: "bicycling" }
 ];
 
-function toPayloadPoint(input) {
-  if (!input) return "";
+function parseCoordinate(input, label) {
+  if (!input) throw new Error(`Ingresa coordenadas para ${label}`);
   const trimmed = input.trim();
-  if (!trimmed) return "";
+  if (!trimmed) throw new Error(`Ingresa coordenadas para ${label}`);
   const parts = trimmed.split(",");
-  if (parts.length === 2) {
-    const lat = Number(parts[0]);
-    const lng = Number(parts[1]);
-    if (Number.isFinite(lat) && Number.isFinite(lng)) {
-      return { lat, lng };
-    }
+  if (parts.length !== 2) {
+    throw new Error(`Usa formato lat,lng para ${label}`);
   }
-  return trimmed;
+  const lat = Number(parts[0]);
+  const lng = Number(parts[1]);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    throw new Error(`Coordenadas inválidas para ${label}`);
+  }
+  return { lat, lng };
 }
 
 export default function CalculateDistanceSystem() {
@@ -46,9 +46,21 @@ export default function CalculateDistanceSystem() {
       return;
     }
 
+    let parsedOrigin;
+    let parsedDestination;
+
+    try {
+      parsedOrigin = parseCoordinate(origin, "el origen");
+      parsedDestination = parseCoordinate(destination, "el destino");
+    } catch (coordinateError) {
+      setLoading(false);
+      setError(coordinateError.message);
+      return;
+    }
+
     const payload = {
-      origin: toPayloadPoint(origin),
-      destination: toPayloadPoint(destination),
+      origin: parsedOrigin,
+      destination: parsedDestination,
       mode
     };
 
@@ -87,13 +99,13 @@ export default function CalculateDistanceSystem() {
       <div className="grid max-w-xl gap-3 md:grid-cols-2">
         <input
           className="rounded border border-slate-200 p-2"
-          placeholder="Origen (dirección o lat,lng)"
+          placeholder="Origen (lat,lng ej: 4.65,-74.05)"
           value={origin}
           onChange={(event) => setOrigin(event.target.value)}
         />
         <input
           className="rounded border border-slate-200 p-2"
-          placeholder="Destino (dirección o lat,lng)"
+          placeholder="Destino (lat,lng ej: 4.86,-74.03)"
           value={destination}
           onChange={(event) => setDestination(event.target.value)}
         />
@@ -130,19 +142,21 @@ export default function CalculateDistanceSystem() {
           <p>
             <span className="font-medium">Duración:</span> {result.durationMinutes} minutos
           </p>
-          {result.providerMeta?.originAddress && (
+          {result.providerMeta?.origin && (
             <p>
-              <span className="font-medium">Origen:</span> {result.providerMeta.originAddress}
+              <span className="font-medium">Origen:</span> {result.providerMeta.origin.lat},{" "}
+              {result.providerMeta.origin.lng}
             </p>
           )}
-          {result.providerMeta?.destinationAddress && (
+          {result.providerMeta?.destination && (
             <p>
-              <span className="font-medium">Destino:</span> {result.providerMeta.destinationAddress}
+              <span className="font-medium">Destino:</span> {result.providerMeta.destination.lat},{" "}
+              {result.providerMeta.destination.lng}
             </p>
           )}
-          {result.providerMeta?.distanceText && result.providerMeta?.durationText && (
+          {result.providerMeta?.provider && (
             <p className="text-xs text-slate-500">
-              Google: {result.providerMeta.distanceText} · {result.providerMeta.durationText}
+              Fuente: {result.providerMeta.provider} · Perfil {result.providerMeta.profile}
             </p>
           )}
         </section>
