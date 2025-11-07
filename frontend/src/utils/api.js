@@ -1,7 +1,14 @@
 import axios from "axios";
 
 const metaEnv = typeof import.meta !== "undefined" ? import.meta.env : undefined;
-const apiBaseUrl = metaEnv?.VITE_API_URL || process.env.VITE_API_URL || "http://localhost:4000";
+// Toggle between local dev API and the deployed Render API when building for production.
+const resolvedDefaultBaseUrl = metaEnv?.DEV
+  ? "http://localhost:4000"
+  : "https://wheels-unisabana-2.onrender.com";
+const apiBaseUrl =
+  metaEnv?.VITE_API_URL ||
+  process.env?.VITE_API_URL ||
+  resolvedDefaultBaseUrl;
 
 const api = axios.create({
   baseURL: apiBaseUrl,
