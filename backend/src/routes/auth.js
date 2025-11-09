@@ -335,12 +335,27 @@ router.put("/role", requireAuth, async (req, res) => {
       if (!vehicles.length) {
         return res.status(400).json({ error: "Registra un vehículo para activar el modo conductor" });
       }
+
       const now = new Date();
-      const validVehicle = vehicles.find(
-        (v) => v.soatExpiration >= now && v.licenseExpiration >= now
+      const verifiedVehicle = vehicles.find(
+        (v) =>
+          v.status === "verified" &&
+          v.soatExpiration >= now &&
+          v.licenseExpiration >= now
       );
-      if (!validVehicle) {
-        return res.status(400).json({ error: "Actualiza SOAT o licencia del vehículo para habilitar el modo conductor" });
+
+      if (!verifiedVehicle) {
+        const hasExpiredDoc = vehicles.some(
+          (v) => v.soatExpiration < now || v.licenseExpiration < now
+        );
+        const message = hasExpiredDoc
+          ? "Actualiza los documentos del vehículo para habilitar el modo conductor"
+          : "Espera a que uno de tus vehículos sea verificado para activar el modo conductor";
+        return res.status(400).json({ error: message });
+      }
+
+      if (!user.activeVehicle) {
+        user.activeVehicle = verifiedVehicle._id;
       }
     }
 

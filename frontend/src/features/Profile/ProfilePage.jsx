@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../../utils/api";
 import { useAuth } from "../../context/AuthContext.jsx";
 
@@ -31,6 +32,7 @@ function InfoRow({ label, value }) {
 
 export default function ProfilePage() {
   const { user, refreshProfile, updateProfile, logout, loadingProfile } = useAuth();
+  const navigate = useNavigate();
   const [updatingRole, setUpdatingRole] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
   const [form, setForm] = useState(emptyForm);
@@ -47,8 +49,11 @@ export default function ProfilePage() {
   const [resetMessage, setResetMessage] = useState("");
   const [resetLoading, setResetLoading] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [vehicles, setVehicles] = useState([]);
+  const [loadingVehicles, setLoadingVehicles] = useState(false);
 
   const availableRoles = useMemo(() => user?.roles || [], [user?.roles]);
+  const rolesKey = useMemo(() => availableRoles.join("|"), [availableRoles]);
 
   useEffect(() => {
     if (!user) {
@@ -67,6 +72,39 @@ export default function ProfilePage() {
     });
     setResetEmail(user.email || "");
   }, [user]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const hasDriverRole = rolesKey.includes("driver");
+    async function loadVehicles() {
+      if (!user?.id || !hasDriverRole) {
+        if (!cancelled) {
+          setVehicles([]);
+          setLoadingVehicles(false);
+        }
+        return;
+      }
+      setLoadingVehicles(true);
+      try {
+        const { data } = await api.get("/vehicles");
+        if (!cancelled) {
+          setVehicles(Array.isArray(data) ? data : []);
+        }
+      } catch {
+        if (!cancelled) {
+          setVehicles([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingVehicles(false);
+        }
+      }
+    }
+    loadVehicles();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, rolesKey]);
 
   async function changeRole(role) {
     if (!role || role === user?.activeRole) return;
@@ -87,6 +125,105 @@ export default function ProfilePage() {
     }
   }
 
+  const passengerActive = user?.activeRole === "passenger";
+  const driverActive = user?.activeRole === "driver";
+  const hasDriverRole = rolesKey.includes("driver");
+  const verifiedVehicles = useMemo(
+    () =>
+      vehicles.filter((vehicle) => {
+        const status = vehicle?.meta?.status || vehicle?.status;
+        const docsOk = vehicle?.meta?.documentsOk;
+        return status === "verified" && (docsOk === undefined || docsOk === true);
+      }),
+    [vehicles]
+  );
+
+  const driverReady = hasDriverRole && verifiedVehicles.length > 0;
+
+  const driverActiveVehicle = useMemo(() => {
+    if (!driverReady) return null;
+    const activeId = user?.activeVehicle?.toString?.() || user?.activeVehicle;
+    return (
+      verifiedVehicles.find((vehicle) => vehicle?._id?.toString?.() === activeId) ||
+      verifiedVehicles[0]
+    );
+  }, [driverReady, verifiedVehicles, user?.activeVehicle]);
+
+  const hasVehicles = vehicles.length > 0;
+  const hasExpiredDocs = useMemo(
+    () =>
+      vehicles.some(
+        (vehicle) =>
+          vehicle?.meta?.documents?.soat?.status === "expired" ||
+          vehicle?.meta?.documents?.license?.status === "expired"
+      ),
+    [vehicles]
+  );
+  const needsUpdate = useMemo(
+    () =>
+      vehicles.some((vehicle) => (vehicle?.meta?.status || vehicle?.status) === "needs_update"),
+    [vehicles]
+  );
+  const hasRejected = useMemo(
+    () =>
+      vehicles.some((vehicle) => (vehicle?.meta?.status || vehicle?.status) === "rejected"),
+    [vehicles]
+  );
+  const underReview = useMemo(
+    () =>
+      vehicles.some((vehicle) =>
+        ["pending", "under_review"].includes(vehicle?.meta?.status || vehicle?.status)
+      ),
+    [vehicles]
+  );
+
+  let driverHelperTone = driverReady ? "success" : hasDriverRole ? "warning" : "info";
+  let driverHelperMessage = "";
+
+  if (loadingVehicles && hasDriverRole) {
+    driverHelperTone = "info";
+    driverHelperMessage = "Validando tus vehículos...";
+  } else if (!hasDriverRole) {
+    driverHelperTone = "info";
+    driverHelperMessage = "Debes registrar un vehículo para poder ser conductor.";
+  } else if (!hasVehicles) {
+    driverHelperMessage = "Registra un vehículo para activar el modo conductor.";
+  } else if (driverReady) {
+    driverHelperTone = "success";
+    const parts = [];
+    if (driverActiveVehicle?.plate) parts.push(driverActiveVehicle.plate);
+    const name = [driverActiveVehicle?.brand, driverActiveVehicle?.model].filter(Boolean).join(" ");
+    if (name) parts.push(name);
+    driverHelperMessage = parts.length
+      ? `Vehículo verificado: ${parts.join(" · ")}`
+      : "Vehículo verificado listo para ofrecer viajes.";
+  } else if (hasExpiredDocs) {
+    driverHelperMessage = "Actualiza los documentos (SOAT/licencia) para activar el modo conductor.";
+  } else if (needsUpdate) {
+    driverHelperMessage = "Actualiza la información del vehículo y solicita una nueva verificación.";
+  } else if (hasRejected) {
+    driverHelperMessage = "Corrige las observaciones del vehículo antes de activar el modo conductor.";
+  } else if (underReview) {
+    driverHelperTone = "info";
+    driverHelperMessage = "Tu vehículo está en revisión. Te avisaremos cuando sea aprobado.";
+  } else {
+    driverHelperMessage = "Completa la verificación de tu vehículo para activar el modo conductor.";
+  }
+
+  const driverToneClasses = {
+    success: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    warning: "border-amber-200 bg-amber-50 text-amber-700",
+    info: "border-sky-200 bg-sky-50 text-sky-700"
+  };
+
+  const driverHelperClasses = driverToneClasses[driverHelperTone] || driverToneClasses.warning;
+  const driverToggleDisabled =
+    updatingRole || driverActive || !driverReady || !hasDriverRole || loadingVehicles;
+  const passengerToggleDisabled = updatingRole || passengerActive;
+  const driverActionLabel = !hasDriverRole || !hasVehicles ? "Registrar mi vehículo" : "Ir a mis vehículos";
+  const showDriverAction =
+    (!driverReady && ( !hasDriverRole || !hasVehicles || hasExpiredDocs || needsUpdate || hasRejected)) ||
+    !hasDriverRole;
   async function handleProfileSubmit(event) {
     event.preventDefault();
     if (!user) return;
@@ -399,29 +536,116 @@ export default function ProfilePage() {
           </form>
         )}
 
-        {availableRoles.length > 1 && (
-          <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
-            <h3 className="text-sm font-semibold text-slate-900">Cambiar rol</h3>
-            <p className="mt-1 text-xs text-slate-500">Selecciona el modo en el que deseas usar Wheels.</p>
-            <div className="mt-4 flex flex-wrap gap-3">
-              {availableRoles.map((role) => (
-                <button
-                  key={role}
-                  type="button"
-                  className={`rounded-full px-4 py-2 text-sm font-medium transition ${
-                    role === user.activeRole
-                      ? "bg-teal-500 text-white"
-                      : "border border-slate-300 text-slate-600 hover:bg-slate-100"
-                  }`}
-                  onClick={() => changeRole(role)}
-                  disabled={updatingRole || role === user.activeRole}
-                >
-                  {role === "driver" ? "Conductor" : "Pasajero"}
-                </button>
-              ))}
+        <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-semibold text-slate-900">Modo de usuario</h3>
+              <p className="mt-1 text-xs text-slate-500">
+                Cambia entre pasajero y conductor en cualquier momento.
+              </p>
             </div>
-          </section>
-        )}
+            {updatingRole && (
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-medium text-slate-500">
+                Guardando...
+              </span>
+            )}
+          </div>
+
+          <div className="mt-6 grid gap-4">
+            <article
+              className={`rounded-3xl border p-5 transition-all duration-200 ${
+                passengerActive
+                  ? "border-cyan-200 bg-cyan-50 shadow-[0_0_0_4px_rgba(14,165,233,0.15)]"
+                  : "border-slate-200 bg-slate-50"
+              }`}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">Pasajero</p>
+                  <p className="text-xs text-slate-500">Buscar viajes</p>
+                  {passengerActive && (
+                    <span className="mt-3 inline-flex items-center rounded-full bg-cyan-100 px-3 py-1 text-[11px] font-semibold text-cyan-700">
+                      Modo activo
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  aria-pressed={passengerActive}
+                  aria-label="Activar modo pasajero"
+                  className={`relative h-7 w-12 rounded-full border transition-all duration-200 ${
+                    passengerActive
+                      ? "border-cyan-400 bg-cyan-500"
+                      : "border-slate-300 bg-slate-300 hover:border-cyan-400 hover:bg-cyan-400"
+                  } ${passengerToggleDisabled ? "cursor-not-allowed opacity-60" : ""}`}
+                  onClick={() => changeRole("passenger")}
+                  disabled={passengerToggleDisabled}
+                >
+                  <span
+                    className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 ${
+                      passengerActive ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
+            </article>
+
+            <article
+              className={`rounded-3xl border p-5 transition-all duration-200 ${
+                driverActive
+                  ? "border-emerald-300 bg-emerald-50 shadow-[0_0_0_4px_rgba(16,185,129,0.15)]"
+                  : driverReady
+                  ? "border-slate-200 bg-white"
+                  : "border-slate-200 bg-slate-50"
+              }`}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">Conductor</p>
+                  <p className="text-xs text-slate-500">Ofrecer viajes</p>
+                  {driverActive && (
+                    <span className="mt-3 inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-semibold text-emerald-700">
+                      Modo activo
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  aria-pressed={driverActive}
+                  aria-label="Activar modo conductor"
+                  className={`relative h-7 w-12 rounded-full border transition-all duration-200 ${
+                    driverActive
+                      ? "border-emerald-400 bg-emerald-500"
+                      : "border-slate-300 bg-slate-300 hover:border-emerald-400 hover:bg-emerald-400"
+                  } ${driverToggleDisabled ? "cursor-not-allowed opacity-60" : ""}`}
+                  onClick={() => changeRole("driver")}
+                  disabled={driverToggleDisabled}
+                >
+                  <span
+                    className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 ${
+                      driverActive ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {driverHelperMessage && (
+                <div className={`mt-4 rounded-2xl border px-4 py-3 text-xs ${driverHelperClasses}`}>
+                  <p>{driverHelperMessage}</p>
+                  {showDriverAction && (
+                    <button
+                      type="button"
+                      className="mt-3 inline-flex items-center rounded-full border border-slate-300 bg-white px-3 py-1 text-[11px] font-semibold text-slate-700 hover:border-slate-400"
+                      onClick={() => navigate("/vehicles")}
+                    >
+                      {driverActionLabel}
+                    </button>
+                  )}
+                </div>
+              )}
+            </article>
+          </div>
+        </section>
 
         <section className="flex flex-wrap gap-3">
           <button
