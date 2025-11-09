@@ -17,6 +17,14 @@ const swaggerSpec = {
   },
   servers,
   components: {
+    securitySchemes: {
+      bearerAuth: {
+        type: "http",
+        scheme: "bearer",
+        bearerFormat: "JWT",
+        description: "Incluye Authorization: Bearer <token> obtenido en /auth/login"
+      }
+    },
     schemas: {
       RegisterRequest: {
         type: "object",
@@ -169,7 +177,11 @@ const swaggerSpec = {
     "/auth/me": {
       get: {
         summary: "Perfil",
-        responses: { "200": { description: "OK" }, "401": { description: "No autorizado" } }
+        security: [{ bearerAuth: [] }],
+        responses: {
+          "200": { description: "OK" },
+          "401": { description: "No autorizado" }
+        }
       }
     },
     "/maps/distance": {
