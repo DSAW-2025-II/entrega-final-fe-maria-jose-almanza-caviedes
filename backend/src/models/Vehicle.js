@@ -1,10 +1,12 @@
 // Vehicle model linking driver ownership, capacity, and document evidence.
 import mongoose from "mongoose";
 
+const verificationStatuses = ["pending", "under_review", "verified", "rejected", "needs_update"];
+
 const vehicleSchema = new mongoose.Schema(
   {
     // Reference to the owning user (driver). Enforces authorization on CRUD operations.
-  owner: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    owner: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
 
     // Plate identifier; enforce upper-case and uniqueness to prevent duplicates.
     plate: { type: String, required: true, uppercase: true, unique: true, trim: true },
@@ -25,6 +27,14 @@ const vehicleSchema = new mongoose.Schema(
     licenseNumber: { type: String, required: true, trim: true },
     licenseExpiration: { type: Date, required: true },
 
+    // Verification workflow metadata to support admin review and driver feedback loops.
+    status: { type: String, enum: verificationStatuses, default: "pending" },
+    statusUpdatedAt: { type: Date, default: () => new Date() },
+    verificationNotes: { type: String, trim: true },
+  requestedReviewAt: { type: Date, default: null },
+    reviewedAt: { type: Date },
+    reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+
     pickupPoints: [
       {
         name: { type: String, required: true, trim: true },
@@ -36,5 +46,7 @@ const vehicleSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+vehicleSchema.statics.verificationStatuses = verificationStatuses;
 
 export default mongoose.model("Vehicle", vehicleSchema);

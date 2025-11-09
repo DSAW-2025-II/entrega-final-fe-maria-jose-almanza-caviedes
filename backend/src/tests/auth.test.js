@@ -179,14 +179,20 @@ describe("Auth routes", () => {
       .set("Authorization", `Bearer ${token}`)
       .send(secondVehicle);
     expect(createRes.status).toBe(201);
+    const createdVehicleId = createRes.body._id;
+
+    await Vehicle.findByIdAndUpdate(createdVehicleId, {
+      status: "verified",
+      statusUpdatedAt: new Date()
+    });
 
     const activateRes = await request(app)
-      .put(`/vehicles/${createRes.body._id}/activate`)
+      .put(`/vehicles/${createdVehicleId}/activate`)
       .set("Authorization", `Bearer ${token}`)
       .send();
     expect(activateRes.status).toBe(200);
 
     const refreshedUser = await User.findOne({ email: payload.email }).lean();
-    expect(String(refreshedUser.activeVehicle)).toBe(String(createRes.body._id));
+    expect(String(refreshedUser.activeVehicle)).toBe(String(createdVehicleId));
   });
 });

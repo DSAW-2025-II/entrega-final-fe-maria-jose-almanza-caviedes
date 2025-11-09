@@ -169,6 +169,11 @@ describe("Auth API", () => {
 
     const createdVehicleId = createVehicleRes.body._id;
 
+    await Vehicle.findByIdAndUpdate(createdVehicleId, {
+      status: "verified",
+      statusUpdatedAt: new Date()
+    });
+
     const activateRes = await request(app)
       .put(`/vehicles/${createdVehicleId}/activate`)
       .set("Authorization", `Bearer ${token}`)

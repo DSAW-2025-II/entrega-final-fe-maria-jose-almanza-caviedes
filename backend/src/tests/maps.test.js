@@ -22,6 +22,7 @@ class MockSchema {
     this.definition = definition;
     this.options = options;
     this.preHooks = new Map();
+    this.statics = {};
   }
 
   pre(event, handler) {

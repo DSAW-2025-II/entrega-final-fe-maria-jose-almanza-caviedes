@@ -19,12 +19,23 @@ export default function ProfilePage() {
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [resetStep, setResetStep] = useState("request");
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetToken, setResetToken] = useState("");
+  const [resetPassword, setResetPassword] = useState("");
+  const [resetConfirmPassword, setResetConfirmPassword] = useState("");
+  const [resetError, setResetError] = useState("");
+  const [resetMessage, setResetMessage] = useState("");
+  const [resetLoading, setResetLoading] = useState(false);
 
   const availableRoles = useMemo(() => user?.roles || [], [user?.roles]);
 
   useEffect(() => {
     if (!user) {
       setForm(emptyForm);
+      setResetEmail("");
       return;
     }
     setForm({
@@ -36,6 +47,7 @@ export default function ProfilePage() {
       emergencyContactPhone: user.emergencyContact?.phone || "",
       preferredPaymentMethod: user.preferredPaymentMethod || "cash"
     });
+    setResetEmail(user.email || "");
   }, [user]);
 
   async function changeRole(role) {
@@ -85,6 +97,65 @@ export default function ProfilePage() {
       setError(message);
     } finally {
       setSavingProfile(false);
+    }
+  }
+
+  function closePasswordModal() {
+    setShowPasswordModal(false);
+    setResetStep("request");
+    setResetPassword("");
+    setResetConfirmPassword("");
+    setResetToken("");
+    setResetError("");
+    setResetMessage("");
+    setResetLoading(false);
+  }
+
+  async function handleForgotPassword(event) {
+    event.preventDefault();
+    if (!resetEmail) {
+      setResetError("Ingresa tu correo institucional");
+      return;
+    }
+    setResetError("");
+    setResetMessage("");
+    setResetLoading(true);
+    try {
+      await api.post("/auth/forgot-password", { email: resetEmail });
+      setResetMessage("Si el correo existe enviaremos instrucciones a tu bandeja institucional.");
+      setResetStep("request-sent");
+    } catch (err) {
+      setResetError("No se pudo enviar el correo. Intenta de nuevo más tarde.");
+    } finally {
+      setResetLoading(false);
+    }
+  }
+
+  async function handleResetPassword(event) {
+    event.preventDefault();
+    if (!resetToken) {
+      setResetError("Ingresa el código/token recibido por correo");
+      return;
+    }
+    if (!resetPassword || resetPassword.length < 8) {
+      setResetError("La contraseña debe tener al menos 8 caracteres");
+      return;
+    }
+    if (resetPassword !== resetConfirmPassword) {
+      setResetError("Las contraseñas no coinciden");
+      return;
+    }
+    setResetError("");
+    setResetMessage("");
+    setResetLoading(true);
+    try {
+      await api.post("/auth/reset-password", { token: resetToken, password: resetPassword });
+      setResetStep("success");
+      setResetMessage("Contraseña actualizada. Inicia sesión con tu nueva contraseña.");
+    } catch (err) {
+      setResetError(err?.response?.data?.error || "No se pudo restablecer la contraseña");
+    } finally {
+      setResetLoading(false);
     }
   }
 
@@ -269,12 +340,194 @@ export default function ProfilePage() {
           <button
             type="button"
             className="rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 hover:bg-red-100"
-            onClick={logout}
+            onClick={() => setShowLogoutModal(true)}
           >
             Cerrar sesión
           </button>
+          <button
+            type="button"
+            className="rounded-md border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700 hover:bg-blue-100"
+            onClick={() => {
+              setShowPasswordModal(true);
+              setResetStep("request");
+              setResetPassword("");
+              setResetConfirmPassword("");
+              setResetToken("");
+              setResetError("");
+              setResetMessage("");
+            }}
+          >
+            Restablecer contraseña
+          </button>
         </footer>
       </article>
+
+      {showLogoutModal && (
+        <div className="fixed inset-0 z-40 grid place-items-center bg-slate-900/50 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm overflow-hidden rounded-3xl bg-white shadow-2xl">
+            <div className="bg-slate-900 px-6 py-5 text-white">
+              <p className="text-sm uppercase tracking-[0.3em] text-white/70">Configuración</p>
+              <h2 className="mt-2 text-xl font-semibold">¿Cerrar sesión?</h2>
+            </div>
+            <div className="px-6 py-6">
+              <p className="text-sm text-slate-600">¿Estás seguro de que deseas salir de tu cuenta?</p>
+              <div className="mt-6 flex flex-col gap-3">
+                <button
+                  type="button"
+                  className="w-full rounded-full bg-red-500 py-3 text-sm font-semibold uppercase tracking-wider text-white hover:bg-red-600"
+                  onClick={() => {
+                    setShowLogoutModal(false);
+                    logout();
+                  }}
+                >
+                  Sí, cerrar sesión
+                </button>
+                <button
+                  type="button"
+                  className="w-full rounded-full border border-slate-300 py-3 text-sm font-semibold uppercase tracking-wider text-slate-600 hover:bg-slate-50"
+                  onClick={() => setShowLogoutModal(false)}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPasswordModal && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/60 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm overflow-hidden rounded-3xl bg-white shadow-2xl">
+            <div className="bg-slate-900 px-6 py-5 text-white">
+              <button
+                type="button"
+                className="text-sm font-medium text-white/70 hover:text-white"
+                onClick={closePasswordModal}
+              >
+                Volver
+              </button>
+              <h2 className="mt-3 text-xl font-semibold">
+                {resetStep === "request" || resetStep === "request-sent" ? "Recuperar contraseña" : "Nueva contraseña"}
+              </h2>
+              <p className="text-sm text-white/70">
+                {resetStep === "request" || resetStep === "request-sent"
+                  ? "Ingresa tu correo institucional para recibir instrucciones"
+                  : "Ingresa tu nueva contraseña"}
+              </p>
+            </div>
+            <div className="px-6 py-6">
+              {resetError && (
+                <div className="mb-4 rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {resetError}
+                </div>
+              )}
+              {resetMessage && (
+                <div className="mb-4 rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                  {resetMessage}
+                </div>
+              )}
+
+              {(resetStep === "request" || resetStep === "request-sent") && (
+                <form onSubmit={handleForgotPassword} className="space-y-4">
+                  <label className="text-sm text-slate-600">
+                    Correo institucional
+                    <input
+                      type="email"
+                      value={resetEmail}
+                      onChange={(event) => setResetEmail(event.target.value)}
+                      placeholder="nombre@unisabana.edu.co"
+                      className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200"
+                      disabled={resetLoading}
+                    />
+                  </label>
+                  <button
+                    type="submit"
+                    disabled={resetLoading}
+                    className="w-full rounded-full bg-teal-500 py-3 text-sm font-semibold uppercase tracking-wider text-white hover:bg-teal-600 disabled:opacity-60"
+                  >
+                    {resetLoading ? "Enviando..." : "Enviar instrucciones"}
+                  </button>
+                </form>
+              )}
+
+              {resetStep === "request-sent" && (
+                <div className="mt-5 space-y-3 text-sm text-slate-600">
+                  <p>
+                    Revisa tu correo institucional. Si ya tienes el token puedes avanzar para definir una nueva contraseña desde aquí mismo.
+                  </p>
+                  <button
+                    type="button"
+                    className="text-teal-600 hover:text-teal-700"
+                    onClick={() => {
+                      setResetStep("reset");
+                      setResetError("");
+                      setResetMessage("");
+                    }}
+                  >
+                    Ya tengo el token, continuar
+                  </button>
+                </div>
+              )}
+
+              {resetStep === "reset" && (
+                <form onSubmit={handleResetPassword} className="space-y-4">
+                  <label className="text-sm text-slate-600">
+                    Token de verificación
+                    <input
+                      type="text"
+                      value={resetToken}
+                      onChange={(event) => setResetToken(event.target.value)}
+                      placeholder="Pega aquí el código del correo"
+                      className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200"
+                      disabled={resetLoading}
+                    />
+                  </label>
+                  <label className="text-sm text-slate-600">
+                    Nueva contraseña
+                    <input
+                      type="password"
+                      value={resetPassword}
+                      onChange={(event) => setResetPassword(event.target.value)}
+                      className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200"
+                      disabled={resetLoading}
+                    />
+                  </label>
+                  <label className="text-sm text-slate-600">
+                    Confirmar contraseña
+                    <input
+                      type="password"
+                      value={resetConfirmPassword}
+                      onChange={(event) => setResetConfirmPassword(event.target.value)}
+                      className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200"
+                      disabled={resetLoading}
+                    />
+                  </label>
+                  <button
+                    type="submit"
+                    disabled={resetLoading}
+                    className="w-full rounded-full bg-teal-500 py-3 text-sm font-semibold uppercase tracking-wider text-white hover:bg-teal-600 disabled:opacity-60"
+                  >
+                    {resetLoading ? "Procesando..." : "Restablecer contraseña"}
+                  </button>
+                </form>
+              )}
+
+              {resetStep === "success" && (
+                <div className="space-y-4 text-center text-sm text-slate-600">
+                  <p>Contraseña actualizada. Puedes usarla la próxima vez que inicies sesión.</p>
+                  <button
+                    type="button"
+                    className="w-full rounded-full bg-teal-500 py-3 text-sm font-semibold uppercase tracking-wider text-white hover:bg-teal-600"
+                    onClick={closePasswordModal}
+                  >
+                    Entendido
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
