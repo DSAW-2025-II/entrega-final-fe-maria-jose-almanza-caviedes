@@ -1,9 +1,11 @@
 import request from "supertest";
 import mongoose from "mongoose";
-import User from "../models/User.js";
-import Vehicle from "../models/Vehicle.js";
+import crypto from "crypto";
 import { jest } from "@jest/globals";
 import { MongoMemoryServer } from "mongodb-memory-server";
+import User from "../models/User.js";
+import Vehicle from "../models/Vehicle.js";
+import PasswordReset from "../models/PasswordReset.js";
 import { clearRevokedTokens } from "../utils/tokenBlacklist.js";
 
 let app;
@@ -31,6 +33,7 @@ afterAll(async () => {
 beforeEach(async () => {
   await User.deleteMany({});
   await Vehicle.deleteMany({});
+  await PasswordReset.deleteMany({});
   clearRevokedTokens();
 });
 
@@ -111,6 +114,119 @@ describe("Auth routes", () => {
       .send({ email: "missing@unisabana.edu.co", password: "SecurePass123" });
     expect(unknownUser.status).toBe(401);
     expect(unknownUser.body?.error).toBe("Credenciales inválidas");
+  });
+
+  it("issues short-lived hashed password reset tokens", async () => {
+    const payload = {
+      email: "forgot@unisabana.edu.co",
+      firstName: "Forgot",
+      lastName: "User",
+      universityId: "A00055555",
+      phone: "3005550101",
+      password: "SecurePass123"
+    };
+
+    await request(app).post("/auth/register").send(payload).expect(201);
+    const createdUser = await User.findOne({ email: payload.email.toLowerCase() });
+    expect(createdUser).toBeTruthy();
+
+    const randomSpy = jest.spyOn(crypto, "randomBytes");
+    try {
+      randomSpy.mockReturnValueOnce(Buffer.from("a".repeat(64), "hex"));
+      await request(app).post("/auth/forgot-password").send({ email: payload.email }).expect(200);
+
+      let tokens = await PasswordReset.find({ userId: createdUser._id }).sort({ createdAt: 1 }).lean();
+      expect(tokens).toHaveLength(1);
+      const expectedHash = crypto.createHash("sha256").update("a".repeat(64)).digest("hex");
+      expect(tokens[0].token).toBe(expectedHash);
+      expect(tokens[0].used).toBe(false);
+      const span = tokens[0].expiresAt.getTime() - tokens[0].createdAt.getTime();
+      const ttlMs = 1000 * 60 * 15;
+      expect(span).toBeGreaterThanOrEqual(ttlMs - 1000);
+      expect(span).toBeLessThanOrEqual(ttlMs + 1000);
+
+      randomSpy.mockReturnValueOnce(Buffer.from("b".repeat(64), "hex"));
+      await request(app).post("/auth/forgot-password").send({ email: payload.email }).expect(200);
+
+      tokens = await PasswordReset.find({ userId: createdUser._id }).sort({ createdAt: 1 }).lean();
+      expect(tokens).toHaveLength(2);
+      expect(tokens[0].used).toBe(true);
+      expect(tokens[1].used).toBe(false);
+    } finally {
+      randomSpy.mockRestore();
+    }
+  });
+
+  it("resets password exactly once per token", async () => {
+    const payload = {
+      email: "reset@unisabana.edu.co",
+      firstName: "Reset",
+      lastName: "User",
+      universityId: "A00066666",
+      phone: "3005550202",
+      password: "SecurePass123"
+    };
+
+    await request(app).post("/auth/register").send(payload).expect(201);
+
+    const randomSpy = jest.spyOn(crypto, "randomBytes");
+    randomSpy.mockReturnValueOnce(Buffer.from("c".repeat(64), "hex"));
+    await request(app).post("/auth/forgot-password").send({ email: payload.email }).expect(200);
+    randomSpy.mockRestore();
+
+    const rawToken = "c".repeat(64);
+    const resetRes = await request(app)
+      .post("/auth/reset-password")
+      .send({ token: rawToken, password: "NuevoPass123" });
+
+    expect(resetRes.status).toBe(200);
+    expect(resetRes.body?.ok).toBe(true);
+
+    const loginNew = await request(app)
+      .post("/auth/login")
+      .send({ email: payload.email, password: "NuevoPass123" });
+    expect(loginNew.status).toBe(200);
+
+    const loginOld = await request(app)
+      .post("/auth/login")
+      .send({ email: payload.email, password: payload.password });
+    expect(loginOld.status).toBe(401);
+
+    const secondReset = await request(app)
+      .post("/auth/reset-password")
+      .send({ token: rawToken, password: "OtraClave123" });
+    expect(secondReset.status).toBe(400);
+    expect(secondReset.body?.error).toBe("Token inválido o expirado");
+  });
+
+  it("rejects expired password reset tokens", async () => {
+    const payload = {
+      email: "expired@unisabana.edu.co",
+      firstName: "Expired",
+      lastName: "User",
+      universityId: "A00077777",
+      phone: "3005550303",
+      password: "SecurePass123"
+    };
+
+    await request(app).post("/auth/register").send(payload).expect(201);
+    const user = await User.findOne({ email: payload.email.toLowerCase() });
+    expect(user).toBeTruthy();
+
+    const rawToken = "d".repeat(64);
+    const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
+    await PasswordReset.create({
+      userId: user._id,
+      token: tokenHash,
+      expiresAt: new Date(Date.now() - 1000),
+      used: false
+    });
+
+    const res = await request(app)
+      .post("/auth/reset-password")
+      .send({ token: rawToken, password: "OtraClave123" });
+    expect(res.status).toBe(400);
+    expect(res.body?.error).toBe("Token inválido o expirado");
   });
 
   it("requires authentication to logout", async () => {

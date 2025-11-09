@@ -12,6 +12,7 @@ import { revokeToken } from "../utils/tokenBlacklist.js";
 import { sendWelcomeEmail } from "../services/emailService.js";
 
 const router = Router();
+const RESET_TOKEN_TTL_MS = Number(process.env.PASSWORD_RESET_TTL_MS || 1000 * 60 * 15);
 
 // Helper to check Mongo connection state: 1 means connected/ready.
 // Prevents ambiguous behavior when DB is down (surface 503 early).
@@ -385,13 +386,16 @@ router.post("/forgot-password", async (req, res) => {
     // Always return OK to avoid leaking which emails are registered.
     if (!user) return res.json({ ok: true });
 
-    const token = crypto.randomBytes(32).toString("hex");
-    const expiresAt = new Date(Date.now() + 1000 * 60 * 60); // 1 hour
+  await PasswordReset.updateMany({ userId: user._id, used: false }, { used: true });
 
-    await PasswordReset.create({ userId: user._id, token, expiresAt });
+  const tokenRaw = crypto.randomBytes(32).toString("hex");
+  const tokenHash = crypto.createHash("sha256").update(tokenRaw).digest("hex");
+  const expiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MS);
+
+  await PasswordReset.create({ userId: user._id, token: tokenHash, expiresAt });
 
     const frontend = process.env.FRONTEND_URL || "http://localhost:5173";
-    const resetLink = `${frontend}/reset-password?token=${token}`;
+  const resetLink = `${frontend}/reset-password?token=${tokenRaw}`;
 
     // TODO: integrate real email provider. For now, log the link for dev.
     console.log(`Password reset link for ${user.email}: ${resetLink}`);
@@ -406,10 +410,11 @@ router.post("/forgot-password", async (req, res) => {
 router.post("/reset-password", async (req, res) => {
   try {
     if (!isDbReady()) return res.status(503).json({ error: "DB no disponible" });
-    const { token, password } = req.body || {};
-    if (!token || !password || password.length < 6) return res.status(400).json({ error: "Token o contraseña inválidos" });
+  const { token, password } = req.body || {};
+  if (!token || !password || password.length < 8) return res.status(400).json({ error: "Token o contraseña inválidos" });
 
-    const pr = await PasswordReset.findOne({ token });
+  const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+  const pr = await PasswordReset.findOne({ token: tokenHash });
     if (!pr || pr.used || pr.expiresAt < new Date()) return res.status(400).json({ error: "Token inválido o expirado" });
 
     const user = await User.findById(pr.userId);
@@ -420,6 +425,8 @@ router.post("/reset-password", async (req, res) => {
 
     pr.used = true;
     await pr.save();
+
+  await PasswordReset.updateMany({ userId: user._id, used: false }, { used: true });
 
     return res.json({ ok: true });
   } catch (e) {

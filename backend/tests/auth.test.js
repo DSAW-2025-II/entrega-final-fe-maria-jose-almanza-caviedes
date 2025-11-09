@@ -1,5 +1,6 @@
 import request from "supertest";
 import mongoose from "mongoose";
+import crypto from "crypto";
 import User from "../src/models/User.js";
 import Vehicle from "../src/models/Vehicle.js";
 import PasswordReset from "../src/models/PasswordReset.js";
@@ -110,13 +111,19 @@ describe("Auth API", () => {
   test("forgot-password creates a token and reset works", async () => {
     const email = "forgot@unisabana.edu.co";
     await request(app).post("/auth/register").send(passengerPayload({ email }));
+    const tokenRaw = "e".repeat(64);
+    const randomSpy = jest.spyOn(crypto, "randomBytes");
+    randomSpy.mockReturnValueOnce(Buffer.from(tokenRaw, "hex"));
     const res = await request(app).post("/auth/forgot-password").send({ email });
+    randomSpy.mockRestore();
     expect(res.status).toBe(200);
     // token created
     const pr = await PasswordReset.findOne({}).lean();
     expect(pr).toBeTruthy();
+    const expectedHash = crypto.createHash("sha256").update(tokenRaw).digest("hex");
+    expect(pr.token).toBe(expectedHash);
 
-    const reset = await request(app).post("/auth/reset-password").send({ token: pr.token, password: "newpass123" });
+    const reset = await request(app).post("/auth/reset-password").send({ token: tokenRaw, password: "newpass123" });
     expect(reset.status).toBe(200);
     // login with new password
     const login = await request(app).post("/auth/login").send({ email, password: "newpass123" });
