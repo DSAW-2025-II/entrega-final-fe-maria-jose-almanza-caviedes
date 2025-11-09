@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 
-const palettes = {
+export const palettes = {
   midnight: {
     name: "Midnight Pulse",
     background: "from-[#030712] via-[#0b1b3b] to-[#06142f]",
@@ -16,14 +16,19 @@ const palettes = {
     primary: "#5B30F6",
     glow: "rgba(157,123,255,0.3)",
     card: "bg-[#0f1430]/80 backdrop-blur-xl border border-[#3a3f63]/60"
+  }
+};
+
+export const themeShowcase = {
+  midnight: {
+    label: "Midnight Pulse",
+    preview: "from-[#051029] via-[#0b1b3b] to-[#04122a]",
+    accent: "#16C1F3"
   },
-  daylight: {
-    name: "Daylight Gradient",
-    background: "from-[#f5fbff] via-[#e8f3ff] to-[#d9ecff]",
-    accent: "#0EA5E9",
-    primary: "#2563EB",
-    glow: "rgba(37,99,235,0.18)",
-    card: "bg-white/60 backdrop-blur-xl border border-white/70"
+  nebula: {
+    label: "Nebula Neon",
+    preview: "from-[#1c0f4f] via-[#2b1c72] to-[#130a35]",
+    accent: "#9D7BFF"
   }
 };
 
