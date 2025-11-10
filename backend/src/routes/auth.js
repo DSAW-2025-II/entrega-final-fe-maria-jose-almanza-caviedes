@@ -9,7 +9,7 @@ import Vehicle from "../models/Vehicle.js";
 import PasswordReset from "../models/PasswordReset.js";
 import { requireAuth } from "../middlewares/auth.js";
 import { revokeToken } from "../utils/tokenBlacklist.js";
-import { sendWelcomeEmail } from "../services/emailService.js";
+import { sendWelcomeEmail, sendPasswordResetEmail } from "../services/emailService.js";
 
 const router = Router();
 const RESET_TOKEN_TTL_MS = Number(process.env.PASSWORD_RESET_TTL_MS || 1000 * 60 * 15);
@@ -392,13 +392,26 @@ router.post("/forgot-password", async (req, res) => {
   const tokenHash = crypto.createHash("sha256").update(tokenRaw).digest("hex");
   const expiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MS);
 
-  await PasswordReset.create({ userId: user._id, token: tokenHash, expiresAt });
+    await PasswordReset.create({ userId: user._id, token: tokenHash, expiresAt });
 
     const frontend = process.env.FRONTEND_URL || "http://localhost:5173";
   const resetLink = `${frontend}/reset-password?token=${tokenRaw}`;
 
-    // TODO: integrate real email provider. For now, log the link for dev.
-    console.log(`Password reset link for ${user.email}: ${resetLink}`);
+    const expiresInMinutes = Math.max(1, Math.round(RESET_TOKEN_TTL_MS / 60000));
+
+    await sendPasswordResetEmail({
+      email: user.email,
+      firstName: user.firstName,
+      resetLink,
+      token: tokenRaw,
+      expiresInMinutes
+    }).catch((err) => {
+      console.error("send reset email failed", err);
+    });
+
+    if (process.env.NODE_ENV !== "test") {
+      console.log(`Password reset link for ${user.email}: ${resetLink}`);
+    }
     return res.json({ ok: true });
   } catch (e) {
     console.error("forgot-password error", e);
