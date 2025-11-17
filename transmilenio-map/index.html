@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mapa TransMilenio + ArcGIS</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha512-sA+e2QmG3z8pWh05rq6ArlTc95xJMu38xpv8uKXuX4nHCqB6f+GO6zkRgZNpmj12E7YjDdyCjTiMQuYzLM/tA==" crossorigin="" />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header>
+      <h1>TransMilenio ArcGIS Viewer</h1>
+      <p>Carga las estaciones y rutas troncales directamente desde los servicios oficiales ArcGIS.</p>
+      <button id="reload">Recargar capas</button>
+      <span id="status" aria-live="polite"></span>
+    </header>
+    <main>
+      <div id="map" role="region" aria-label="Mapa interactivo de TransMilenio"></div>
+    </main>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
