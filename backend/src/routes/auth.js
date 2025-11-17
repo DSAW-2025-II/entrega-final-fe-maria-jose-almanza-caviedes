@@ -328,39 +328,23 @@ router.put("/role", requireAuth, async (req, res) => {
 
     const user = await User.findById(req.user.sub);
     if (!user) return res.status(404).json({ error: "Usuario no encontrado" });
+
     if (!user.roles.includes(role)) {
-      return res.status(403).json({ error: "Rol no habilitado para el usuario" });
+      user.roles.push(role);
     }
 
-    if (role === "driver") {
-      const vehicles = await Vehicle.find({ owner: user._id });
-      if (!vehicles.length) {
-        return res.status(400).json({ error: "Registra un vehículo para activar el modo conductor" });
-      }
+    if (!user.roles.includes("passenger")) {
+      user.roles.push("passenger");
+    }
 
-      const now = new Date();
-      const verifiedVehicle = vehicles.find(
-        (v) =>
-          v.status === "verified" &&
-          v.soatExpiration >= now &&
-          v.licenseExpiration >= now
-      );
-
-      if (!verifiedVehicle) {
-        const hasExpiredDoc = vehicles.some(
-          (v) => v.soatExpiration < now || v.licenseExpiration < now
-        );
-        const message = hasExpiredDoc
-          ? "Actualiza los documentos del vehículo para habilitar el modo conductor"
-          : "Espera a que uno de tus vehículos sea verificado para activar el modo conductor";
-        return res.status(400).json({ error: message });
-      }
-
-      if (!user.activeVehicle) {
-        user.activeVehicle = verifiedVehicle._id;
+    if (role === "driver" && !user.activeVehicle) {
+      const firstVehicle = await Vehicle.findOne({ owner: user._id }).sort({ createdAt: 1 }).lean();
+      if (firstVehicle?._id) {
+        user.activeVehicle = firstVehicle._id;
       }
     }
 
+    user.roles = Array.from(new Set(user.roles));
     user.activeRole = role;
     await user.save();
     return res.json({ user: toPublicUser(user) });

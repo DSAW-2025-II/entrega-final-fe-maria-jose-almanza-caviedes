@@ -127,15 +127,7 @@ export default function ProfilePage() {
   const passengerActive = user?.activeRole === "passenger";
   const driverActive = user?.activeRole === "driver";
   const hasDriverRole = rolesKey.includes("driver");
-  const verifiedVehicles = useMemo(
-    () =>
-      vehicles.filter((vehicle) => {
-        const status = vehicle?.meta?.status || vehicle?.status;
-        const docsOk = vehicle?.meta?.documentsOk;
-        return status === "verified" && (docsOk === undefined || docsOk === true);
-      }),
-    [vehicles]
-  );
+  const verifiedVehicles = useMemo(() => vehicles, [vehicles]);
 
   const driverReady = hasDriverRole && verifiedVehicles.length > 0;
 
@@ -149,80 +141,38 @@ export default function ProfilePage() {
   }, [driverReady, verifiedVehicles, user?.activeVehicle]);
 
   const hasVehicles = vehicles.length > 0;
-  const hasExpiredDocs = useMemo(
-    () =>
-      vehicles.some(
-        (vehicle) =>
-          vehicle?.meta?.documents?.soat?.status === "expired" ||
-          vehicle?.meta?.documents?.license?.status === "expired"
-      ),
-    [vehicles]
-  );
-  const needsUpdate = useMemo(
-    () =>
-      vehicles.some((vehicle) => (vehicle?.meta?.status || vehicle?.status) === "needs_update"),
-    [vehicles]
-  );
-  const hasRejected = useMemo(
-    () =>
-      vehicles.some((vehicle) => (vehicle?.meta?.status || vehicle?.status) === "rejected"),
-    [vehicles]
-  );
-  const underReview = useMemo(
-    () =>
-      vehicles.some((vehicle) =>
-        ["pending", "under_review"].includes(vehicle?.meta?.status || vehicle?.status)
-      ),
-    [vehicles]
-  );
-
-  let driverHelperTone = driverReady ? "success" : hasDriverRole ? "warning" : "info";
+  let driverHelperTone = "info";
   let driverHelperMessage = "";
 
-  if (loadingVehicles && hasDriverRole) {
-    driverHelperTone = "info";
-    driverHelperMessage = "Validando tus vehículos...";
-  } else if (!hasDriverRole) {
-    driverHelperTone = "info";
-    driverHelperMessage = "Debes registrar un vehículo para poder ser conductor.";
+  if (loadingVehicles) {
+    driverHelperMessage = "Cargando información de tus vehículos...";
   } else if (!hasVehicles) {
-    driverHelperMessage = "Registra un vehículo para activar el modo conductor.";
-  } else if (driverReady) {
+    driverHelperTone = "warning";
+    driverHelperMessage = "Registra un vehículo con tus documentos y podrás activar el modo conductor al instante.";
+  } else if (driverActive) {
     driverHelperTone = "success";
     const parts = [];
     if (driverActiveVehicle?.plate) parts.push(driverActiveVehicle.plate);
     const name = [driverActiveVehicle?.brand, driverActiveVehicle?.model].filter(Boolean).join(" ");
     if (name) parts.push(name);
     driverHelperMessage = parts.length
-      ? `Vehículo verificado: ${parts.join(" · ")}`
-      : "Vehículo verificado listo para ofrecer viajes.";
-  } else if (hasExpiredDocs) {
-    driverHelperMessage = "Actualiza los documentos (SOAT/licencia) para activar el modo conductor.";
-  } else if (needsUpdate) {
-    driverHelperMessage = "Actualiza la información del vehículo y solicita una nueva verificación.";
-  } else if (hasRejected) {
-    driverHelperMessage = "Corrige las observaciones del vehículo antes de activar el modo conductor.";
-  } else if (underReview) {
-    driverHelperTone = "info";
-    driverHelperMessage = "Tu vehículo está en revisión. Te avisaremos cuando sea aprobado.";
+      ? `Modo conductor activo · ${parts.join(" · ")}`
+      : "Modo conductor activo. Ya puedes publicar viajes.";
   } else {
-    driverHelperMessage = "Completa la verificación de tu vehículo para activar el modo conductor.";
+    driverHelperMessage = "Activa el modo conductor cuando quieras y comienza a ofrecer viajes con tus vehículos registrados.";
   }
 
-  const driverToneClasses = {
-    success: "border-emerald-200 bg-emerald-50 text-emerald-700",
-    warning: "border-amber-200 bg-amber-50 text-amber-700",
-    info: "border-sky-200 bg-sky-50 text-sky-700"
-  };
-
-  const driverHelperClasses = driverToneClasses[driverHelperTone] || driverToneClasses.warning;
-  const driverToggleDisabled =
-    updatingRole || driverActive || !driverReady || !hasDriverRole || loadingVehicles;
+  const driverHelperClasses =
+    driverHelperTone === "success"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : driverHelperTone === "warning"
+      ? "border-amber-200 bg-amber-50 text-amber-700"
+      : "border-sky-200 bg-sky-50 text-sky-700";
+  const driverToggleDisabled = updatingRole || driverActive || loadingVehicles;
   const passengerToggleDisabled = updatingRole || passengerActive;
   const driverActionLabel = !hasDriverRole || !hasVehicles ? "Registrar mi vehículo" : "Ir a mis vehículos";
   const showDriverAction =
-    (!driverReady && ( !hasDriverRole || !hasVehicles || hasExpiredDocs || needsUpdate || hasRejected)) ||
-    !hasDriverRole;
+    !driverActive && (!hasVehicles || !hasDriverRole);
   async function handleProfileSubmit(event) {
     event.preventDefault();
     if (!user) return;
