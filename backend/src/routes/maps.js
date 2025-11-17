@@ -99,12 +99,33 @@ async function handleTransmilenioFetch(res, fetchFn) {
   }
 }
 
+
 router.get("/transmilenio/routes", async (_req, res) => {
   await handleTransmilenioFetch(res, getTransmilenioRoutes);
 });
 
 router.get("/transmilenio/stations", async (_req, res) => {
   await handleTransmilenioFetch(res, getTransmilenioStations);
+});
+
+// Lightweight stops endpoint: id, name, lat, lng
+router.get("/transmilenio/stops", async (_req, res) => {
+  try {
+    const { data } = await getTransmilenioStations();
+    if (!data?.features?.length) return res.json({ stops: [] });
+    const stops = data.features.map((feature) => {
+      const props = feature.properties || {};
+      return {
+        id: props.numero_estacion || props.codigo_nodo_estacion || props.objectid || feature.id,
+        name: props.nombre_estacion || props.nombre || "Estación",
+        lat: props.latitud_estacion || (feature.geometry?.coordinates?.[1]),
+        lng: props.longitud_estacion || (feature.geometry?.coordinates?.[0])
+      };
+    }).filter(stop => stop.id && stop.name && typeof stop.lat === "number" && typeof stop.lng === "number");
+    res.json({ stops });
+  } catch (error) {
+    res.status(502).json({ error: error?.message || "No se pudo obtener paradas TM" });
+  }
 });
 
 export default router;

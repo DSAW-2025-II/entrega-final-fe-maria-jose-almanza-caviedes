@@ -41,6 +41,37 @@ function normalizePickupPayload(rawPoint = {}) {
 }
 
 // POST /trips: create a new trip authored by the authenticated driver.
+
+// Helper: snap polyline to stops and generate pickup suggestions
+async function generatePickupSuggestionsFromPolyline(route, stops) {
+  if (!Array.isArray(route) || !route.length || !Array.isArray(stops) || !stops.length) return [];
+  // For now, snap to the closest stop for each polyline point, dedupe by stop id
+  const snapped = [];
+  const usedIds = new Set();
+  for (const point of route) {
+    let minDist = Infinity, closest = null;
+    for (const stop of stops) {
+      const d = Math.hypot(point.lat - stop.lat, point.lng - stop.lng);
+      if (d < minDist) {
+        minDist = d;
+        closest = stop;
+      }
+    }
+    if (closest && !usedIds.has(closest.id)) {
+      snapped.push({
+        name: closest.name,
+        description: closest.description || undefined,
+        lat: closest.lat,
+        lng: closest.lng,
+        source: "system",
+        status: "active"
+      });
+      usedIds.add(closest.id);
+    }
+  }
+  return snapped;
+}
+
 router.post("/", requireAuth, async (req, res) => {
   const {
     vehicleId,
@@ -52,11 +83,28 @@ router.post("/", requireAuth, async (req, res) => {
     pricePerSeat,
     pickupPoints,
     distanceKm,
-    durationMinutes
+    durationMinutes,
+    originStopId,
+    originStopName,
+    originStopLat,
+    originStopLng,
+    destinationStopId,
+    destinationStopName,
+    destinationStopLat,
+    destinationStopLng,
+    route
   } = req.body || {};
 
-  if (!origin || !destination || !departureAt || !seatsTotal || pricePerSeat == null) {
-    return res.status(400).json({ error: "Datos incompletos para crear viaje" });
+  // New: require stops/polyline for new-style trips, else fallback to legacy
+  const isNewStyle = originStopId && destinationStopId && Array.isArray(route) && route.length >= 2;
+  if (isNewStyle) {
+    if (!departureAt || !seatsTotal || pricePerSeat == null) {
+      return res.status(400).json({ error: "Datos incompletos para crear viaje" });
+    }
+  } else {
+    if (!origin || !destination || !departureAt || !seatsTotal || pricePerSeat == null) {
+      return res.status(400).json({ error: "Datos incompletos para crear viaje" });
+    }
   }
 
   const user = await User.findById(req.user.sub);
@@ -113,17 +161,50 @@ router.post("/", requireAuth, async (req, res) => {
     }
   }
 
-  const tripPayload = {
+
+  let tripPayload = {
     driver: req.user.sub,
     vehicle: vehicle._id,
-    origin,
-    destination,
     routeDescription,
     departureAt: departureDate,
     seatsTotal: seatsNumber,
     seatsAvailable: seatsNumber,
     pricePerSeat: priceNumber,
-    pickupPoints: pickupPoints?.map((point) => {
+    distanceKm: distanceKm != null ? Number(distanceKm) : undefined,
+    durationMinutes: durationMinutes != null ? Number(durationMinutes) : undefined
+  };
+
+  if (isNewStyle) {
+    // New-style: store stops, polyline, and generate pickupPoints from route
+    tripPayload = {
+      ...tripPayload,
+      originStopId,
+      originStopName,
+      originStopLat,
+      originStopLng,
+      destinationStopId,
+      destinationStopName,
+      destinationStopLat,
+      destinationStopLng,
+      route
+    };
+    // Fetch stops from DB or cache (reuse /maps/transmilenio/stops logic)
+    let stops = [];
+    try {
+      const stopsModule = await import("./maps.js");
+      stops = (await stopsModule.getTransmilenioStopsList?.()) || [];
+    } catch {
+      // fallback: no stops
+    }
+    tripPayload.pickupPoints = await generatePickupSuggestionsFromPolyline(route, stops);
+    // For new-style, legacy origin/destination are optional
+    tripPayload.origin = originStopName || "";
+    tripPayload.destination = destinationStopName || "";
+  } else {
+    // Legacy: use provided origin/destination and pickupPoints
+    tripPayload.origin = origin;
+    tripPayload.destination = destination;
+    tripPayload.pickupPoints = pickupPoints?.map((point) => {
       const { value } = normalizePickupPayload(point);
       return {
         ...value,
@@ -132,10 +213,8 @@ router.post("/", requireAuth, async (req, res) => {
         requestedBy: req.user.sub,
         createdAt: new Date()
       };
-    }),
-    distanceKm: distanceKm != null ? Number(distanceKm) : undefined,
-    durationMinutes: durationMinutes != null ? Number(durationMinutes) : undefined
-  };
+    });
+  }
 
   if (tripPayload.distanceKm != null && (Number.isNaN(tripPayload.distanceKm) || tripPayload.distanceKm < 0)) {
     return res.status(400).json({ error: "Distancia inválida" });
@@ -147,7 +226,6 @@ router.post("/", requireAuth, async (req, res) => {
   Object.keys(tripPayload).forEach((key) => tripPayload[key] === undefined && delete tripPayload[key]);
 
   const trip = await Trip.create(tripPayload);
-
   res.status(201).json({ trip: sanitizeTrip(trip) });
 });
 

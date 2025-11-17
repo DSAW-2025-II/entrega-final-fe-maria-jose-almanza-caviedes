@@ -66,6 +66,16 @@ export default function TripList() {
   const [reservationSending, setReservationSending] = useState(false);
   const [customPickupEnabled, setCustomPickupEnabled] = useState(false);
   const [customPickup, setCustomPickup] = useState({ name: "", description: "", lat: "", lng: "" });
+
+  // Helper: is this a new-style trip (with system-generated pickup points)?
+  function isNewStyleTrip(trip) {
+    return (
+      Array.isArray(trip?.pickupPoints) &&
+      trip.pickupPoints.length > 0 &&
+      trip.originStopId && trip.destinationStopId &&
+      Array.isArray(trip.route) && trip.route.length >= 2
+    );
+  }
   const [reservationFieldErrors, setReservationFieldErrors] = useState({});
   const [reservationSuccess, setReservationSuccess] = useState(null);
 
@@ -138,7 +148,7 @@ export default function TripList() {
       fieldErrors.seats = "No hay suficientes cupos disponibles";
     }
     let pickup;
-    if (customPickupEnabled) {
+    if (customPickupEnabled && !isNewStyleTrip(reservationTrip)) {
       const name = customPickup.name.trim();
       const description = customPickup.description.trim();
       const lat = Number(customPickup.lat);
@@ -185,7 +195,8 @@ export default function TripList() {
       const { data } = await api.post(`/trips/${reservationTrip._id}/reservations`, payload);
       let nextTrip = data?.trip || null;
 
-      if (customPickupEnabled) {
+      // Only allow pickup suggestions for legacy trips
+      if (customPickupEnabled && !isNewStyleTrip(reservationTrip)) {
         try {
           const suggestionRes = await api.post(`/trips/${reservationTrip._id}/pickup-suggestions`, pickup);
           if (suggestionRes.data?.trip) {
@@ -217,6 +228,7 @@ export default function TripList() {
   }
 
   const availablePickupPoints = reservationTrip?.pickupPoints?.filter((point) => point.status !== "rejected") || [];
+  const isNewStyle = isNewStyleTrip(reservationTrip);
   const selectedReservationPickup = !customPickupEnabled
     ? availablePickupPoints[reservationForm.pickupPointIndex] || null
     : null;
@@ -474,7 +486,7 @@ export default function TripList() {
                         setReservationError("");
                         setReservationFieldErrors({});
                         const hasPickupPoints = Array.isArray(trip.pickupPoints) && trip.pickupPoints.length > 0;
-                        setCustomPickupEnabled(!hasPickupPoints);
+                        setCustomPickupEnabled(!hasPickupPoints && !isNewStyleTrip(trip));
                         setCustomPickup({ name: "", description: "", lat: "", lng: "" });
                       }}
                     >
@@ -530,51 +542,55 @@ export default function TripList() {
               </div>
             </header>
 
-            {!availablePickupPoints.length && (
+            {!availablePickupPoints.length && !isNewStyle && (
               <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
                 El conductor aún no ha definido puntos de recogida para este viaje. Selecciona uno en el mapa para sugerirlo al confirmar tu reserva.
               </div>
             )}
 
             <div className="mb-4 space-y-3">
-              <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                <label className="flex items-center gap-2 text-sm text-slate-700">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4"
-                    checked={customPickupEnabled || !availablePickupPoints.length}
-                    onChange={(event) => {
-                      const enabled = event.target.checked;
-                      const forceEnabled = !availablePickupPoints.length;
-                      setCustomPickupEnabled(enabled || forceEnabled);
-                      if (!enabled && !forceEnabled) {
-                        setCustomPickup({ name: "", description: "", lat: "", lng: "" });
-                        clearFieldError("customPickupName");
-                        clearFieldError("customPickupLat");
-                        clearFieldError("customPickupLng");
-                      } else {
-                        clearFieldError("pickupPointIndex");
-                      }
-                      setReservationError("");
-                    }}
-                    disabled={!availablePickupPoints.length}
-                  />
-                  Sugerir un nuevo punto usando el mapa
-                </label>
-                <p className="mt-1 text-xs text-slate-500">
-                  {customPickupEnabled || !availablePickupPoints.length
-                    ? "Haz clic en el mapa para fijar coordenadas y describe el punto para el conductor."
-                    : "Puedes elegir uno de los puntos del conductor o activar la casilla para proponer uno nuevo."}
-                </p>
-              </div>
+              {!isNewStyle && (
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                  <label className="flex items-center gap-2 text-sm text-slate-700">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4"
+                      checked={customPickupEnabled || !availablePickupPoints.length}
+                      onChange={(event) => {
+                        const enabled = event.target.checked;
+                        const forceEnabled = !availablePickupPoints.length;
+                        setCustomPickupEnabled(enabled || forceEnabled);
+                        if (!enabled && !forceEnabled) {
+                          setCustomPickup({ name: "", description: "", lat: "", lng: "" });
+                          clearFieldError("customPickupName");
+                          clearFieldError("customPickupLat");
+                          clearFieldError("customPickupLng");
+                        } else {
+                          clearFieldError("pickupPointIndex");
+                        }
+                        setReservationError("");
+                      }}
+                      disabled={!availablePickupPoints.length}
+                    />
+                    Sugerir un nuevo punto usando el mapa
+                  </label>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {customPickupEnabled || !availablePickupPoints.length
+                      ? "Haz clic en el mapa para fijar coordenadas y describe el punto para el conductor."
+                      : "Puedes elegir uno de los puntos del conductor o activar la casilla para proponer uno nuevo."}
+                  </p>
+                </div>
+              )}
 
               <TransmilenioMap
                 height={260}
                 pickupPoints={availablePickupPoints}
                 selectedPoint={customPickupEnabled ? customPickupSelectedPoint : selectedReservationPickup}
                 onPickupSelect={(_point, index) => {
-                  setCustomPickupEnabled(false);
-                  setCustomPickup({ name: "", description: "", lat: "", lng: "" });
+                  if (!isNewStyle) {
+                    setCustomPickupEnabled(false);
+                    setCustomPickup({ name: "", description: "", lat: "", lng: "" });
+                  }
                   setReservationForm((prev) => ({ ...prev, pickupPointIndex: index }));
                   clearFieldError("customPickupName");
                   clearFieldError("customPickupLat");
@@ -583,7 +599,7 @@ export default function TripList() {
                   setReservationError("");
                 }}
                 onSelectPoint={
-                  customPickupEnabled
+                  customPickupEnabled && !isNewStyle
                     ? ({ lat, lng }) => {
                         setCustomPickup((prev) => ({
                           ...prev,
@@ -596,7 +612,7 @@ export default function TripList() {
                       }
                     : undefined
                 }
-                interactive={customPickupEnabled}
+                interactive={customPickupEnabled && !isNewStyle}
               />
               <p className="text-xs text-slate-500">
                 {customPickupEnabled
@@ -605,7 +621,7 @@ export default function TripList() {
               </p>
             </div>
 
-            {(customPickupEnabled || !availablePickupPoints.length) && (
+            {(customPickupEnabled || !availablePickupPoints.length) && !isNewStyle && (
               <div className="mb-4 space-y-3 rounded-lg border border-slate-200 bg-white/70 p-4 text-sm text-slate-700">
                 <p className="text-sm font-medium text-slate-800">Describe el nuevo punto</p>
                 <label className="block text-xs uppercase tracking-wide text-slate-500">

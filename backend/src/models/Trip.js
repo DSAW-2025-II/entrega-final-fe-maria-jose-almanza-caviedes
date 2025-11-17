@@ -45,6 +45,16 @@ const reservationSchema = new mongoose.Schema(
   { _id: true, timestamps: true }
 );
 
+
+// Polyline waypoint schema for route drawing
+const polylinePointSchema = new mongoose.Schema(
+  {
+    lat: { type: Number, required: true },
+    lng: { type: Number, required: true }
+  },
+  { _id: false }
+);
+
 const tripSchema = new mongoose.Schema(
   {
     // Driver who created the trip.
@@ -57,6 +67,19 @@ const tripSchema = new mongoose.Schema(
     origin: { type: String, required: true, trim: true },
     destination: { type: String, required: true, trim: true },
     routeDescription: { type: String, trim: true },
+
+    // New: TransMilenio stop IDs and metadata for structured routes
+    originStopId: { type: String, trim: true },
+    originStopName: { type: String, trim: true },
+    originStopLat: { type: Number },
+    originStopLng: { type: Number },
+    destinationStopId: { type: String, trim: true },
+    destinationStopName: { type: String, trim: true },
+    destinationStopLat: { type: Number },
+    destinationStopLng: { type: Number },
+
+    // New: Route polyline (ordered waypoints)
+    route: [polylinePointSchema],
 
     // Planned departure date/time.
     departureAt: { type: Date, required: true },
