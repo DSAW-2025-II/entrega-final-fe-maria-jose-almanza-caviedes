@@ -14,6 +14,30 @@ function sanitizeTrip(trip) {
   return obj;
 }
 
+function normalizePickupPayload(rawPoint = {}) {
+  const name = rawPoint?.name?.trim();
+  if (!name) {
+    return { error: "Ingresa un nombre para el punto" };
+  }
+  const description = rawPoint?.description?.trim();
+  const lat = Number(rawPoint?.lat);
+  const lng = Number(rawPoint?.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return { error: "Latitud y longitud deben ser numéricas" };
+  }
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    return { error: "Coordenadas fuera de rango" };
+  }
+  return {
+    value: {
+      name,
+      description: description || undefined,
+      lat,
+      lng
+    }
+  };
+}
+
 // POST /trips: create a new trip authored by the authenticated driver.
 router.post("/", requireAuth, async (req, res) => {
   const {
@@ -80,11 +104,10 @@ router.post("/", requireAuth, async (req, res) => {
   }
 
   if (pickupPoints) {
-    const invalidPoint = pickupPoints.find(
-      (p) => !p?.name || Number.isNaN(Number(p.lat)) || Number.isNaN(Number(p.lng))
-    );
+    const invalidPoint = pickupPoints.find((point) => normalizePickupPayload(point).error);
     if (invalidPoint) {
-      return res.status(400).json({ error: "Cada punto de recogida requiere nombre y coordenadas" });
+      const { error: pointError } = normalizePickupPayload(invalidPoint);
+      return res.status(400).json({ error: pointError });
     }
   }
 
@@ -98,12 +121,16 @@ router.post("/", requireAuth, async (req, res) => {
     seatsTotal: seatsNumber,
     seatsAvailable: seatsNumber,
     pricePerSeat: priceNumber,
-    pickupPoints: pickupPoints?.map((p) => ({
-      name: p.name,
-      description: p.description,
-      lat: Number(p.lat),
-      lng: Number(p.lng)
-    })),
+    pickupPoints: pickupPoints?.map((point) => {
+      const { value } = normalizePickupPayload(point);
+      return {
+        ...value,
+        source: "driver",
+        status: "active",
+        requestedBy: req.user.sub,
+        createdAt: new Date()
+      };
+    }),
     distanceKm: distanceKm != null ? Number(distanceKm) : undefined,
     durationMinutes: durationMinutes != null ? Number(durationMinutes) : undefined
   };
@@ -139,7 +166,7 @@ router.get("/", async (req, res) => {
     if (!Number.isNaN(price)) criteria.pricePerSeat = { $lte: price };
   }
 
-  const list = await Trip.find(criteria).sort({ departureAt: 1 }).lean();
+  const list = await Trip.find(criteria).select("-pickupSuggestions").sort({ departureAt: 1 }).lean();
   res.json({ trips: list });
 });
 
@@ -164,18 +191,22 @@ router.post("/:id/reservations", requireAuth, async (req, res) => {
     return res.status(400).json({ error: "Debes indicar un punto de recogida por puesto" });
   }
 
+  const normalizedReservationPoints = [];
+  for (const point of pickupPoints) {
+    const { value, error } = normalizePickupPayload(point);
+    if (error) {
+      return res.status(400).json({ error });
+    }
+    normalizedReservationPoints.push(value);
+  }
+
   if (paymentMethod && !["cash", "nequi"].includes(paymentMethod)) {
     return res.status(400).json({ error: "Método de pago inválido" });
   }
   const reservationDoc = {
     passenger: req.user.sub,
     seats: seatsRequested,
-    pickupPoints: pickupPoints.map((p) => ({
-      name: p.name,
-      description: p.description,
-      lat: Number(p.lat),
-      lng: Number(p.lng)
-    })),
+    pickupPoints: normalizedReservationPoints,
     paymentMethod: paymentMethod || "cash",
     status: "pending"
   };
@@ -226,6 +257,50 @@ router.post("/:id/reservations", requireAuth, async (req, res) => {
   }
 
   res.status(201).json({ trip: sanitizeTrip(trip) });
+});
+
+// POST /trips/:id/pickup-suggestions: passengers propose new pickup points as part of bookings.
+router.post("/:id/pickup-suggestions", requireAuth, async (req, res) => {
+  const { value, error } = normalizePickupPayload(req.body || {});
+  if (error) {
+    return res.status(400).json({ error });
+  }
+
+  const trip = await Trip.findById(req.params.id);
+  if (!trip) return res.status(404).json({ error: "Viaje no encontrado" });
+
+  if (trip.driver?.toString() === req.user.sub) {
+    return res.status(400).json({ error: "Los conductores deben gestionar puntos desde el panel correspondiente" });
+  }
+
+  const pendingForPassenger = (trip.pickupSuggestions || []).filter(
+    (suggestion) => suggestion.passenger?.toString() === req.user.sub && suggestion.status === "pending"
+  );
+  if (pendingForPassenger.length >= 3) {
+    return res.status(429).json({ error: "Ya tienes solicitudes pendientes para este viaje" });
+  }
+
+  const pickupPoint = {
+    ...value,
+    source: "passenger",
+    status: "active",
+    requestedBy: req.user.sub,
+    createdAt: new Date()
+  };
+
+  trip.pickupPoints = trip.pickupPoints || [];
+  trip.pickupPoints.push(pickupPoint);
+  trip.pickupSuggestions = trip.pickupSuggestions || [];
+  trip.pickupSuggestions.push({
+    passenger: req.user.sub,
+    ...value,
+    status: "pending"
+  });
+
+  await trip.save();
+
+  const suggestion = trip.pickupSuggestions[trip.pickupSuggestions.length - 1];
+  return res.status(201).json({ suggestion, pickupPoint, trip: sanitizeTrip(trip) });
 });
 
 function adjustTripCapacity(trip) {

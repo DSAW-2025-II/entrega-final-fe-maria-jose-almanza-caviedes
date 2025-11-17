@@ -1,6 +1,10 @@
 // Maps integration endpoints proxy to OpenRouteService via mapsService.
 import { Router } from "express";
 import { calculateDistance, getDistanceMatrix, MapsServiceError } from "../services/mapsService.js";
+import {
+  getTransmilenioRoutes,
+  getTransmilenioStations
+} from "../services/transmilenioService.js";
 
 const router = Router();
 
@@ -80,6 +84,27 @@ router.post("/calculate", async (req, res) => {
     }
     res.status(500).json({ error: "Distance Matrix error", detail: error.message });
   }
+});
+
+async function handleTransmilenioFetch(res, fetchFn) {
+  try {
+    const { data, cacheHit, fetchedAt } = await fetchFn();
+    res.json({ data, meta: { cacheHit, fetchedAt } });
+  } catch (error) {
+    const status = error?.statusCode || error?.response?.status || 502;
+    res.status(status).json({
+      error: error?.message || "TransMilenio no disponible",
+      cacheHit: Boolean(error?.cacheHit)
+    });
+  }
+}
+
+router.get("/transmilenio/routes", async (_req, res) => {
+  await handleTransmilenioFetch(res, getTransmilenioRoutes);
+});
+
+router.get("/transmilenio/stations", async (_req, res) => {
+  await handleTransmilenioFetch(res, getTransmilenioStations);
 });
 
 export default router;

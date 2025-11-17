@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import api from "../../utils/api";
 import { useAuth } from "../../context/AuthContext.jsx";
 import useVehiclesOverview from "../Vehicles/hooks/useVehiclesOverview.js";
+import TransmilenioMap from "../../components/TransmilenioMap.jsx";
 
 const emptyForm = {
   vehicleId: "",
@@ -125,6 +126,33 @@ export default function TripForm() {
     setTariffSuggestion(null);
     setTariffFeedback("");
   }, [form.distanceKm, form.durationMinutes]);
+
+  const mapSelectedPoint = useMemo(() => {
+    const lat = Number(pickupDraft.lat);
+    const lng = Number(pickupDraft.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    return { lat, lng };
+  }, [pickupDraft.lat, pickupDraft.lng]);
+
+  const handlePickupMapSelect = useCallback(({ lat, lng }) => {
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    setPickupDraft((prev) => ({
+      ...prev,
+      lat: lat.toFixed(5),
+      lng: lng.toFixed(5)
+    }));
+    setError("");
+  }, []);
+
+  const handlePickupMarkerSelect = useCallback((point) => {
+    if (!point?.__latlng) return;
+    setPickupDraft({
+      name: point.name || point.__label || "",
+      description: point.description || "",
+      lat: point.__latlng.lat.toFixed(5),
+      lng: point.__latlng.lng.toFixed(5)
+    });
+  }, []);
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -573,6 +601,20 @@ export default function TripForm() {
               <h2 className="text-sm font-semibold text-slate-800">Puntos de recogida</h2>
               <p className="text-xs text-slate-500">Opcional, puedes reutilizar los del vehículo o agregar nuevos.</p>
             </header>
+
+            <div className="mb-6">
+              <TransmilenioMap
+                height={340}
+                pickupPoints={pickupPoints}
+                selectedPoint={mapSelectedPoint}
+                onSelectPoint={handlePickupMapSelect}
+                onPickupSelect={handlePickupMarkerSelect}
+              />
+              <p className="mt-2 text-xs text-slate-500">
+                Usa el mapa para ubicar los paraderos oficiales o tus puntos frecuentes. Al hacer clic sobre el mapa llenamos
+                automáticamente las coordenadas del formulario.
+              </p>
+            </div>
 
             {pickupPoints.length > 0 ? (
               <ul className="mb-4 space-y-2 text-sm text-slate-600">

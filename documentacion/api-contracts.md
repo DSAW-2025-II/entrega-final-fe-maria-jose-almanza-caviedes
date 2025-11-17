@@ -145,6 +145,13 @@ Consolidated API contract per user story. Cada sección incluye endpoint(s), mé
 - **Response Payload (200):** `{ "trip": { ... } }`
 - **Notes:** Usar `PUT` para reemplazar puntos existentes.
 
+### Suggest Pickup Point (Passenger)
+- **Endpoint:** `/trips/:id/pickup-suggestions`
+- **Method:** `POST`
+- **Request Payload:** `{ "name": "string", "description?": "string", "lat": number, "lng": number }`
+- **Response Payload (201):** `{ "suggestion": { ... }, "pickupPoint": { ... }, "trip": { ... } }`
+- **Notes:** Máximo tres sugerencias pendientes por pasajero y viaje. El punto queda disponible para futuras reservas inmediatamente.
+
 ### Calculate Distance & Estimated Time (System)
 - **Endpoint:** `/maps/calculate`
 - **Method:** `POST`

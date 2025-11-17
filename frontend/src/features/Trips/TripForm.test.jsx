@@ -10,6 +10,11 @@ jest.mock("../../utils/api", () => ({
   post: (...args) => mockPost(...args)
 }));
 
+jest.mock("../../components/TransmilenioMap.jsx", () => ({
+  __esModule: true,
+  default: () => <div data-testid="transmilenio-map" />
+}));
+
 jest.mock("../../context/AuthContext.jsx", () => ({
   useAuth: () => ({
     user: { roles: ["driver"], activeVehicle: "veh1" }
@@ -39,7 +44,7 @@ const vehicleFixture = () => {
 beforeEach(() => {
   mockGet.mockReset();
   mockPost.mockReset();
-  mockGet.mockResolvedValue({ data: [vehicleFixture()] });
+  mockGet.mockResolvedValue({ data: { vehicles: [vehicleFixture()], activeVehicle: "veh1" } });
 });
 
 async function fillRequiredFields() {
@@ -76,7 +81,7 @@ describe("TripForm - tariff suggestion", () => {
 
     render(<TripForm />);
 
-    await waitFor(() => expect(mockGet).toHaveBeenCalledWith("/vehicles"));
+    await waitFor(() => expect(mockGet).toHaveBeenCalledWith("/vehicles/overview"));
 
     const distanceInput = screen.getByLabelText(/Distancia estimada/);
     const durationInput = screen.getByLabelText(/Duración estimada/);
@@ -113,7 +118,7 @@ describe("TripForm - tariff suggestion", () => {
 
     render(<TripForm />);
 
-    await waitFor(() => expect(mockGet).toHaveBeenCalledWith("/vehicles"));
+    await waitFor(() => expect(mockGet).toHaveBeenCalledWith("/vehicles/overview"));
 
     await fillRequiredFields();
 

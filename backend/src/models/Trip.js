@@ -6,9 +6,27 @@ const pickupPointSchema = new mongoose.Schema(
     name: { type: String, required: true },
     description: { type: String },
     lat: { type: Number, required: true },
-    lng: { type: Number, required: true }
+    lng: { type: Number, required: true },
+    source: { type: String, enum: ["driver", "passenger"], default: "driver" },
+    status: { type: String, enum: ["active", "pending", "rejected"], default: "active" },
+    requestedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    createdAt: { type: Date, default: () => new Date() }
   },
   { _id: false }
+);
+
+const pickupSuggestionSchema = new mongoose.Schema(
+  {
+    passenger: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    name: { type: String, required: true },
+    description: { type: String },
+    lat: { type: Number, required: true },
+    lng: { type: Number, required: true },
+    status: { type: String, enum: ["pending", "approved", "rejected"], default: "pending" },
+    decisionAt: { type: Date },
+    driverNote: { type: String }
+  },
+  { _id: true, timestamps: true }
 );
 
 const reservationSchema = new mongoose.Schema(
@@ -65,7 +83,10 @@ const tripSchema = new mongoose.Schema(
     },
 
     // Embedded reservations for quick lookup. For large scale, move to separate collection.
-    reservations: [reservationSchema]
+    reservations: [reservationSchema],
+
+    // Pickup suggestions submitted by passengers when booking.
+    pickupSuggestions: [pickupSuggestionSchema]
   },
   { timestamps: true }
 );

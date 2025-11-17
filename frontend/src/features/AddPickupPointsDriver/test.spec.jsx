@@ -27,17 +27,20 @@ beforeEach(() => {
 
 test("renders saved pickup points for the active vehicle", async () => {
   api.get.mockResolvedValue({
-    data: [
-      {
-        _id: "veh1",
-        brand: "Renault",
-        model: "Logan",
-        plate: "AAA111",
-        pickupPoints: [
-          { _id: "p1", name: "Puente Madera", description: "Entrada", lat: 4.86, lng: -74.05 }
-        ]
-      }
-    ]
+    data: {
+      vehicles: [
+        {
+          _id: "veh1",
+          brand: "Renault",
+          model: "Logan",
+          plate: "AAA111",
+          pickupPoints: [
+            { _id: "p1", name: "Puente Madera", description: "Entrada", lat: 4.86, lng: -74.05 }
+          ]
+        }
+      ],
+      activeVehicle: "veh1"
+    }
   });
 
   render(<AddPickupPointsDriver />);
@@ -47,17 +50,43 @@ test("renders saved pickup points for the active vehicle", async () => {
 });
 
 test("creates a pickup point for the selected vehicle", async () => {
-  api.get.mockResolvedValue({
-    data: [
-      {
-        _id: "veh1",
-        brand: "Renault",
-        model: "Logan",
-        plate: "AAA111",
-        pickupPoints: []
+  api.get
+    .mockResolvedValueOnce({
+      data: {
+        vehicles: [
+          {
+            _id: "veh1",
+            brand: "Renault",
+            model: "Logan",
+            plate: "AAA111",
+            pickupPoints: []
+          }
+        ],
+        activeVehicle: "veh1"
       }
-    ]
-  });
+    })
+    .mockResolvedValueOnce({
+      data: {
+        vehicles: [
+          {
+            _id: "veh1",
+            brand: "Renault",
+            model: "Logan",
+            plate: "AAA111",
+            pickupPoints: [
+              {
+                _id: "p2",
+                name: "Ad Portas",
+                description: "Frente a Ad Portas",
+                lat: 4.87,
+                lng: -74.04
+              }
+            ]
+          }
+        ],
+        activeVehicle: "veh1"
+      }
+    });
 
   api.post.mockResolvedValue({
     data: {
@@ -94,5 +123,5 @@ test("creates a pickup point for the selected vehicle", async () => {
   });
 
   expect(await screen.findByText("Punto agregado correctamente")).toBeInTheDocument();
-  expect(screen.getByText("Ad Portas")).toBeInTheDocument();
+  expect(await screen.findByText("Ad Portas")).toBeInTheDocument();
 });

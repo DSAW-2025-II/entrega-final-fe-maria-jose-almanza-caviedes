@@ -41,7 +41,7 @@ Los componentes de features referencian esas rutas públicas.
      - npm run setup
   2) Variables backend:
      - copy backend/.env.example backend/.env
-     - Ajusta: JWT_SECRET, MONGO_URI, GOOGLE_MAPS_KEY (si usarás /maps/distance)
+    - Ajusta: JWT_SECRET, MONGO_URI, OPENROUTESERVICE_KEY (si usarás /maps/distance)
   3) Ejecuta en paralelo:
      - npm run dev:win
      - Frontend: http://localhost:5173
@@ -68,9 +68,10 @@ Los componentes de features referencian esas rutas públicas.
 7) Pruebas rápidas del backend (sin Google/Mongo):
    - Salud: curl http://localhost:4000/health
    - Waze: curl "http://localhost:4000/navigation/waze?lat=4.65&lng=-74.05"
-   - Distance (sin key): curl "http://localhost:4000/maps/distance?origin=4.65,-74.05&destination=4.86,-74.03" → debe dar 500 si no configuraste GOOGLE_MAPS_KEY.
+  - Distance (sin key): curl "http://localhost:4000/maps/distance?origin=4.65,-74.05&destination=4.86,-74.03" → debe dar 500 si no configuraste OPENROUTESERVICE_KEY.
 8) Cuando uses Google/Mongo:
-  - Edita backend/.env y define: MONGO_URI=mongodb://localhost:27017/wheels (debe empezar por mongodb:// o mongodb+srv://) y GOOGLE_MAPS_KEY=tu_api_key
+  - Edita backend/.env y define: MONGO_URI=mongodb://localhost:27017/wheels (debe empezar por mongodb:// o mongodb+srv://) y OPENROUTESERVICE_KEY=tu_api_key
+  - Opcional: ajusta TRANSMILENIO_CACHE_TTL_SEC (segundos) o TRANSMILENIO_TIMEOUT_MS para controlar el caché/timeout de los endpoints ArcGIS.
    - Reinicia solo el backend (cierra la ventana del backend y vuelve a ejecutar run-all.ps1 o cd backend && npm run dev)
 
 ## Diagnóstico rápido
@@ -94,10 +95,13 @@ Los componentes de features referencian esas rutas públicas.
   - POST /vehicles/pickup-points
 - Trips:
   - CRUD /trips
-  - POST /trips/:id/book  (decremento cupos)
+  - POST /trips/:id/reservations  (decremento cupos)
+  - POST /trips/:id/pickup-suggestions  (pasajeros proponen nuevos puntos de recogida)
 - Integraciones:
-  - GET /maps/distance?origin=..&destination=..  (Google Distance Matrix)
-  - GET /navigation/waze?lat=..&lng=..          (deep link)
+  - GET /maps/distance?origin=..&destination=..  (OpenRouteService)
+  - GET /maps/transmilenio/routes                (GeoJSON de trazados oficiales)
+  - GET /maps/transmilenio/stations              (GeoJSON de estaciones oficiales)
+  - GET /navigation/waze?lat=..&lng=..           (deep link)
 - Swagger: http://localhost:4000/api-docs
 - Health: /health
 
@@ -242,7 +246,11 @@ Los componentes de features referencian esas rutas públicas.
 PORT=4000
 MONGO_URI=mongodb://localhost:27017/wheels
 JWT_SECRET=supersecret
-GOOGLE_MAPS_KEY=your_api_key
+OPENROUTESERVICE_KEY=your_api_key
+TRANSMILENIO_CACHE_TTL_SEC=900
+TRANSMILENIO_TIMEOUT_MS=15000
+TRANSMILENIO_ROUTES_URL=
+TRANSMILENIO_STATIONS_URL=
 REDIS_URL=redis://localhost:6379
 
 ## Pruebas (backend)

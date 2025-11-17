@@ -80,6 +80,13 @@ await jest.unstable_mockModule("../utils/redis.js", () => ({ redis: mockedRedis 
 const axiosGet = jest.fn();
 await jest.unstable_mockModule("axios", () => ({ default: { get: axiosGet } }));
 
+const getTransmilenioRoutes = jest.fn();
+const getTransmilenioStations = jest.fn();
+await jest.unstable_mockModule("../services/transmilenioService.js", () => ({
+  getTransmilenioRoutes,
+  getTransmilenioStations
+}));
+
 // Import the Express app only after module mocks are in place so initialization uses the mocked modules.
 // Top-level await ensures module loading order is preserved in ESM context.
 const { default: app } = await import("../app.js");
@@ -103,12 +110,25 @@ const SAMPLE_DIRECTIONS_RESPONSE = {
   ]
 };
 
+const SAMPLE_GEOJSON = {
+  type: "FeatureCollection",
+  features: [
+    {
+      type: "Feature",
+      geometry: { type: "LineString", coordinates: [[-74.1, 4.6], [-74.0, 4.7]] },
+      properties: { linea: "B", sentido: "Norte" }
+    }
+  ]
+};
+
 describe("Maps routes", () => {
   beforeEach(() => {
     axiosGet.mockReset();
     mockedRedis.get.mockReset().mockResolvedValue(null);
     mockedRedis.set.mockReset().mockResolvedValue();
     delete process.env.OPENROUTESERVICE_KEY;
+    getTransmilenioRoutes.mockReset();
+    getTransmilenioStations.mockReset();
   });
 
   // Verifies the endpoint validates required query params (origin/destination) and returns HTTP 400 when missing.
@@ -197,6 +217,27 @@ describe("Maps routes", () => {
       .query({ lat: "4.65", lng: "-74.05" });         // Sample Bogotá-ish coordinates
     expect(res.status).toBe(200);                      // OK status
     expect(res.body.url).toMatch(/^https:\/\/waze\.com\/ul\?ll=/); // Basic format validation
+  });
+
+  it("returns TransMilenio routes GeoJSON", async () => {
+    getTransmilenioRoutes.mockResolvedValue({ data: SAMPLE_GEOJSON, cacheHit: false, fetchedAt: "2025-11-16T00:00:00.000Z" });
+
+    const res = await request(app).get("/maps/transmilenio/routes");
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual(SAMPLE_GEOJSON);
+    expect(res.body.meta).toMatchObject({ cacheHit: false });
+  });
+
+  it("propagates TransMilenio service errors", async () => {
+    const error = new Error("ArcGIS down");
+    error.statusCode = 503;
+    getTransmilenioStations.mockRejectedValue(error);
+
+    const res = await request(app).get("/maps/transmilenio/stations");
+
+    expect(res.status).toBe(503);
+    expect(res.body.error).toMatch(/ArcGIS/);
   });
 });
 
