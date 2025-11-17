@@ -82,6 +82,18 @@ export default function TripForm({ testRoutePolyline }) {
       : userActiveVehicle?.toString?.() || "";
   }, [overviewActiveVehicleId, userActiveVehicle]);
 
+  // If the current user is not a driver, do not render the trip creation UI
+  if (!isDriver) {
+    return (
+      <section className="py-6">
+        <header className="mb-6">
+          <h1 className="text-2xl font-semibold text-slate-900">Publicar nuevo viaje</h1>
+          <p className="text-sm text-slate-600">Solo los conductores pueden publicar viajes. Cambia tu rol a <strong>conductor</strong> para crear viajes y gestionar puntos de recogida.</p>
+        </header>
+      </section>
+    );
+  }
+
   const isVehicleDocsValid = (vehicle) => {
     if (!vehicle) return false;
     if (vehicle.meta?.documentsOk !== undefined) {
