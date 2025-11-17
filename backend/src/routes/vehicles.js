@@ -206,9 +206,10 @@ router.post("/", requireAuth, maybeHandleUpload, async (req, res) => {
       licenseExpiration: licenseExpDate,
       year: Number.isFinite(yearNumber) ? yearNumber : undefined,
       color: trimmedColor || undefined,
-      status: "pending",
+      status: "verified",
       statusUpdatedAt: now,
-      requestedReviewAt: null
+      requestedReviewAt: null,
+      reviewedAt: now
     });
 
     const user = await User.findById(req.user.sub);
@@ -479,10 +480,12 @@ router.put("/:id", requireAuth, maybeHandleUpload, async (req, res) => {
     }
 
     if (reviewTriggered) {
-      vehicle.status = "pending";
-      vehicle.statusUpdatedAt = new Date();
+      const nowReview = new Date();
+      const docsOk = vehicle.soatExpiration >= nowReview && vehicle.licenseExpiration >= nowReview;
+      vehicle.status = docsOk ? "verified" : "needs_update";
+      vehicle.statusUpdatedAt = nowReview;
       vehicle.requestedReviewAt = null;
-      vehicle.reviewedAt = null;
+      vehicle.reviewedAt = docsOk ? nowReview : null;
       vehicle.reviewedBy = null;
       vehicle.verificationNotes = undefined;
     }
@@ -562,9 +565,6 @@ router.put("/:id/activate", requireAuth, async (req, res) => {
   if (vehicle.soatExpiration < now || vehicle.licenseExpiration < now) {
     return res.status(400).json({ error: "Actualiza los documentos antes de activar este vehículo" });
   }
-  if (vehicle.status !== "verified") {
-    return res.status(400).json({ error: "Espera la verificación del vehículo antes de activarlo" });
-  }
 
   const user = await User.findById(req.user.sub);
   if (!user) return res.status(404).json({ error: "Usuario no encontrado" });
@@ -573,7 +573,11 @@ router.put("/:id/activate", requireAuth, async (req, res) => {
   if (!user.roles.includes("driver")) {
     user.roles.push("driver");
   }
-  await user.save();
+  vehicle.status = "verified";
+  vehicle.statusUpdatedAt = now;
+  vehicle.requestedReviewAt = null;
+  vehicle.reviewedAt = now;
+  await Promise.all([user.save(), vehicle.save()]);
 
   return res.json({
     user: { id: user._id, activeVehicle: user.activeVehicle },

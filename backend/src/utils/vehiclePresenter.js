@@ -81,7 +81,10 @@ export function decorateVehicle(vehicleDoc, now = new Date()) {
     acceptableDocumentStatuses.has(documentStatus.soat.status) &&
     acceptableDocumentStatuses.has(documentStatus.license.status);
 
-  const statusKey = vehicle?.status || "pending";
+  let statusKey = vehicle?.status || "pending";
+  if (documentsOk && ["pending", "under_review"].includes(statusKey)) {
+    statusKey = "verified";
+  }
   const statusInfo = STATUS_COPY[statusKey] || {
     label: "Estado desconocido",
     description: "",
@@ -90,6 +93,8 @@ export function decorateVehicle(vehicleDoc, now = new Date()) {
 
   const canRequestReview =
     documentsOk && ["pending", "needs_update", "rejected"].includes(statusKey);
+
+  const blockedStatuses = new Set(["rejected", "needs_update"]);
 
   return {
     ...vehicle,
@@ -102,7 +107,7 @@ export function decorateVehicle(vehicleDoc, now = new Date()) {
       documentsOk,
       warnings,
       canRequestReview,
-      canActivate: statusKey === "verified" && documentsOk,
+      canActivate: documentsOk && !blockedStatuses.has(statusKey),
       requiresDocumentUpdate:
         statusKey === "rejected" || statusKey === "needs_update" || !documentsOk
     }
