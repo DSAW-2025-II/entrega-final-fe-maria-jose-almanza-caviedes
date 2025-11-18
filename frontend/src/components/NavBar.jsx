@@ -13,8 +13,7 @@ const baseNav = [
 export default function NavBar() {
   const { isAuthenticated, user, loadingProfile } = useAuth();
   const { palette } = useTheme();
-  const roles = user?.roles || [];
-  const allowedNav = baseNav.filter((item) => !item.requiresRole || roles.includes(item.requiresRole));
+  const allowedNav = baseNav.filter((item) => !item.requiresRole || user?.activeRole === item.requiresRole);
 
   return (
     <nav
@@ -63,7 +62,7 @@ export default function NavBar() {
                     : `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim() || user?.email}
                 </span>
                 <span className="text-[0.6rem] uppercase tracking-[0.4em] text-white/50">
-                  {user?.activeRole === "driver" ? "Conductor" : "Pasajero"}
+                  {user?.activeRole === "conductor" ? "Conductor" : "Pasajero"}
                 </span>
               </div>
               <Link
