@@ -16,7 +16,7 @@ const emptyForm = {
 const avatarFallback = (firstName = "", lastName = "") => {
   const first = firstName.trim().charAt(0) || "";
   const last = lastName.trim().charAt(0) || "";
-  const initials = ${first}${last}.toUpperCase();
+  const initials = `${first}${last}`.toUpperCase();
   return initials || "WS";
 };
 
@@ -114,7 +114,7 @@ export default function ProfilePage() {
       const { data } = await api.put("/auth/role", { role });
       if (data?.user) {
         await refreshProfile();
-        setSuccess(Rol activo actualizado a ${role === "conductor" ? "Conductor" : "Pasajero"});
+        setSuccess(`Rol activo actualizado a ${role === "conductor" ? "Conductor" : "Pasajero"}`);
       }
     } catch (err) {
       const message = err?.response?.data?.error || "No se pudo actualizar el rol";
@@ -274,10 +274,11 @@ export default function ProfilePage() {
 
   return (
     <section className="py-6">
-      <header className="mb-6">
-        <h1 className="text-2xl font-semibold text-slate-900">Mi perfil</h1>
-        <p className="text-sm text-slate-600">Consulta tu información y mantenla al día.</p>
-      </header>
+      <div>
+        <header className="mb-6">
+          <h1 className="text-2xl font-semibold text-slate-900">Mi perfil</h1>
+          <p className="text-sm text-slate-600">Consulta tu información y mantenla al día.</p>
+        </header>
 
       {error && (
         <div className="mb-4 rounded-2xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -330,7 +331,7 @@ export default function ProfilePage() {
                 label="Contacto de emergencia"
                 value={
                   user.emergencyContact?.name
-                    ? ${user.emergencyContact.name} · ${user.emergencyContact.phone || "Sin teléfono"}
+                    ? `${user.emergencyContact.name} · ${user.emergencyContact.phone || "Sin teléfono"}`
                     : "Sin contacto registrado"
                 }
               />
@@ -502,11 +503,11 @@ export default function ProfilePage() {
 
           <div className="mt-6 grid gap-4">
             <article
-              className={rounded-3xl border p-5 transition-all duration-200 ${
+              className={`rounded-3xl border p-5 transition-all duration-200 ${
                 passengerActive
                   ? "border-cyan-200 bg-cyan-50 shadow-[0_0_0_4px_rgba(14,165,233,0.15)]"
                   : "border-slate-200 bg-slate-50"
-              }}
+              }`}
             >
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -522,31 +523,31 @@ export default function ProfilePage() {
                   type="button"
                   aria-pressed={passengerActive}
                   aria-label="Activar modo pasajero"
-                  className={relative h-7 w-12 rounded-full border transition-all duration-200 ${
+                  className={`relative h-7 w-12 rounded-full border transition-all duration-200 ${
                     passengerActive
                       ? "border-cyan-400 bg-cyan-500"
                       : "border-slate-300 bg-slate-300 hover:border-cyan-400 hover:bg-cyan-400"
-                  } ${passengerToggleDisabled ? "cursor-not-allowed opacity-60" : ""}}
+                  } ${passengerToggleDisabled ? "cursor-not-allowed opacity-60" : ""}`}
                   onClick={() => changeRole("pasajero")}
                   disabled={passengerToggleDisabled}
                 >
                   <span
-                    className={absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 ${
+                    className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 ${
                       passengerActive ? "translate-x-5" : "translate-x-0"
-                    }}
+                    }`}
                   />
                 </button>
               </div>
             </article>
 
             <article
-              className={rounded-3xl border p-5 transition-all duration-200 ${
+              className={`rounded-3xl border p-5 transition-all duration-200 ${
                 driverActive
                   ? "border-emerald-300 bg-emerald-50 shadow-[0_0_0_4px_rgba(16,185,129,0.15)]"
                   : driverReady
                   ? "border-slate-200 bg-white"
                   : "border-slate-200 bg-slate-50"
-              }}
+              }`}
             >
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -562,24 +563,24 @@ export default function ProfilePage() {
                   type="button"
                   aria-pressed={driverActive}
                   aria-label="Activar modo conductor"
-                  className={relative h-7 w-12 rounded-full border transition-all duration-200 ${
+                  className={`relative h-7 w-12 rounded-full border transition-all duration-200 ${
                     driverActive
                       ? "border-emerald-400 bg-emerald-500"
                       : "border-slate-300 bg-slate-300 hover:border-emerald-400 hover:bg-emerald-400"
-                  } ${driverToggleDisabled ? "cursor-not-allowed opacity-60" : ""}}
+                  } ${driverToggleDisabled ? "cursor-not-allowed opacity-60" : ""}`}
                   onClick={() => changeRole("conductor")}
                   disabled={driverToggleDisabled}
                 >
                   <span
-                    className={absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 ${
+                    className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 ${
                       driverActive ? "translate-x-5" : "translate-x-0"
-                    }}
+                    }`}
                   />
                 </button>
               </div>
 
               {driverHelperMessage && (
-                <div className={mt-4 rounded-2xl border px-4 py-3 text-xs ${driverHelperClasses}}>
+                <div className={`mt-4 rounded-2xl border px-4 py-3 text-xs ${driverHelperClasses}`}>
                   <p>{driverHelperMessage}</p>
                   {showDriverAction && (
                     <button
@@ -761,6 +762,7 @@ export default function ProfilePage() {
               )}
             </div>
           </div>
+        </div>
         </div>
       )}
     </section>
