@@ -13,7 +13,13 @@ const baseNav = [
 export default function NavBar() {
   const { isAuthenticated, user, loadingProfile } = useAuth();
   const { palette } = useTheme();
-  const allowedNav = baseNav.filter((item) => !item.requiresRole || user?.activeRole === item.requiresRole);
+
+  // Si aún se está cargando el perfil, solo mostramos navegación mínima.
+  const safeRole = loadingProfile ? null : user?.activeRole;
+
+  const allowedNav = baseNav.filter(
+    (item) => !item.requiresRole || safeRole === item.requiresRole
+  );
 
   return (
     <nav
@@ -24,7 +30,8 @@ export default function NavBar() {
         <Link to={isAuthenticated ? "/dashboard" : "/"} className="text-white/80 hover:text-white">
           Wheels Hub
         </Link>
-        {isAuthenticated && (
+
+        {isAuthenticated && !loadingProfile && (
           <div className="flex flex-wrap items-center gap-2 text-[0.65rem]">
             {allowedNav.map((item) => (
               <NavLink
@@ -43,6 +50,7 @@ export default function NavBar() {
             ))}
           </div>
         )}
+
         <div className="ml-auto flex items-center gap-3 text-[0.65rem]">
           {!isAuthenticated ? (
             <>
@@ -59,12 +67,17 @@ export default function NavBar() {
                 <span className="font-semibold text-white">
                   {loadingProfile
                     ? "Cargando..."
-                    : `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim() || user?.email}
+                    : `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim() ||
+                      user?.email}
                 </span>
-                <span className="text-[0.6rem] uppercase tracking-[0.4em] text-white/50">
-                  {user?.activeRole === "conductor" ? "Conductor" : "Pasajero"}
-                </span>
+
+                {!loadingProfile && (
+                  <span className="text-[0.6rem] uppercase tracking-[0.4em] text-white/50">
+                    {user?.activeRole === "conductor" ? "Conductor" : "Pasajero"}
+                  </span>
+                )}
               </div>
+
               <Link
                 to="/logout"
                 className="rounded-full bg-white/15 px-3 py-1 text-white hover:bg-white/25"
