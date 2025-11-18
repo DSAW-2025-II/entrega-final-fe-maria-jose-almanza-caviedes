@@ -15,11 +15,13 @@ export function AuthProvider({ children }) {
   });
   const [loadingProfile, setLoadingProfile] = useState(false);
 
+  // Persist token
   useEffect(() => {
     if (token) localStorage.setItem("token", token);
     else localStorage.removeItem("token");
   }, [token]);
 
+  // Persist user
   useEffect(() => {
     if (user) {
       localStorage.setItem("user", JSON.stringify(user));
@@ -28,17 +30,31 @@ export function AuthProvider({ children }) {
     }
   }, [user]);
 
+  // Load profile when token changes
   useEffect(() => {
     let cancelled = false;
+
     async function loadProfile() {
       if (!token) {
         setUser(null);
         return;
       }
+
       setLoadingProfile(true);
+
       try {
         const { data } = await api.get("/auth/me");
-        if (!cancelled) setUser(data.user || null);
+
+        if (!cancelled) {
+          setUser((prev) => ({
+            ...data.user,
+            // Preserve role if backend doesn't return an updated role
+            activeRole:
+              data.user?.activeRole ??
+              prev?.activeRole ??
+              "pasajero"
+          }));
+        }
       } catch {
         if (!cancelled) {
           setUser(null);
@@ -48,7 +64,9 @@ export function AuthProvider({ children }) {
         if (!cancelled) setLoadingProfile(false);
       }
     }
+
     loadProfile();
+
     return () => {
       cancelled = true;
     };
@@ -57,7 +75,10 @@ export function AuthProvider({ children }) {
   const handleLogin = (newToken, userData) => {
     setToken(newToken);
     if (userData) {
-      setUser(userData);
+      setUser({
+        ...userData,
+        activeRole: userData.activeRole ?? "pasajero"
+      });
     }
   };
 
@@ -74,15 +95,33 @@ export function AuthProvider({ children }) {
 
   const refreshProfile = async () => {
     if (!token) return null;
+
     const { data } = await api.get("/auth/me");
-    setUser(data.user || null);
+
+    setUser((prev) => ({
+      ...data.user,
+      activeRole:
+        data.user?.activeRole ??
+        prev?.activeRole ??
+        "pasajero"
+    }));
+
     return data.user || null;
   };
 
   const updateProfile = async (payload) => {
     if (!token) throw new Error("No autenticado");
+
     const { data } = await api.put("/auth/me", payload);
-    setUser(data.user || null);
+
+    setUser((prev) => ({
+      ...data.user,
+      activeRole:
+        data.user?.activeRole ??
+        prev?.activeRole ??
+        "pasajero"
+    }));
+
     return data.user || null;
   };
 
@@ -92,7 +131,7 @@ export function AuthProvider({ children }) {
       user,
       isAuthenticated: Boolean(token),
       login: handleLogin,
-  logout: handleLogout,
+      logout: handleLogout,
       refreshProfile,
       updateProfile,
       loadingProfile
