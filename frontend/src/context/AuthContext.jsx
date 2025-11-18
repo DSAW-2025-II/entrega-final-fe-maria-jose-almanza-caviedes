@@ -3,34 +3,38 @@ import api from "../utils/api";
 
 const AuthCtx = createContext(null);
 
+// Convertir roles backend → frontend
+function normalizeRole(role) {
+  if (!role) return "pasajero";
+  if (role === "driver" || role === "conductor") return "conductor";
+  if (role === "passenger" || role === "pasajero") return "pasajero";
+  return "pasajero";
+}
+
 export function AuthProvider({ children }) {
   const [token, setToken] = useState(() => localStorage.getItem("token") || "");
   const [user, setUser] = useState(() => {
     const raw = localStorage.getItem("user");
     try {
-      return raw ? JSON.parse(raw) : null;
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (!parsed) return null;
+      return { ...parsed, activeRole: normalizeRole(parsed.activeRole) };
     } catch {
       return null;
     }
   });
   const [loadingProfile, setLoadingProfile] = useState(false);
 
-  // Persist token
   useEffect(() => {
     if (token) localStorage.setItem("token", token);
     else localStorage.removeItem("token");
   }, [token]);
 
-  // Persist user
   useEffect(() => {
-    if (user) {
-      localStorage.setItem("user", JSON.stringify(user));
-    } else {
-      localStorage.removeItem("user");
-    }
+    if (user) localStorage.setItem("user", JSON.stringify(user));
+    else localStorage.removeItem("user");
   }, [user]);
 
-  // Load profile when token changes
   useEffect(() => {
     let cancelled = false;
 
@@ -41,19 +45,15 @@ export function AuthProvider({ children }) {
       }
 
       setLoadingProfile(true);
-
       try {
         const { data } = await api.get("/auth/me");
 
         if (!cancelled) {
-          setUser((prev) => ({
+          const normalized = {
             ...data.user,
-            // Preserve role if backend doesn't return an updated role
-            activeRole:
-              data.user?.activeRole ??
-              prev?.activeRole ??
-              "pasajero"
-          }));
+            activeRole: normalizeRole(data.user?.activeRole),
+          };
+          setUser(normalized);
         }
       } catch {
         if (!cancelled) {
@@ -66,10 +66,7 @@ export function AuthProvider({ children }) {
     }
 
     loadProfile();
-
-    return () => {
-      cancelled = true;
-    };
+    return () => (cancelled = true);
   }, [token]);
 
   const handleLogin = (newToken, userData) => {
@@ -77,7 +74,7 @@ export function AuthProvider({ children }) {
     if (userData) {
       setUser({
         ...userData,
-        activeRole: userData.activeRole ?? "pasajero"
+        activeRole: normalizeRole(userData.activeRole),
       });
     }
   };
@@ -85,42 +82,36 @@ export function AuthProvider({ children }) {
   const handleLogout = async () => {
     try {
       await api.post("/auth/logout");
-    } catch (err) {
-      console.warn("logout request failed", err?.message || err);
-    } finally {
-      setToken("");
-      setUser(null);
-    }
+    } catch {}
+    setToken("");
+    setUser(null);
   };
 
   const refreshProfile = async () => {
     if (!token) return null;
-
     const { data } = await api.get("/auth/me");
 
-    setUser((prev) => ({
+    const normalized = {
       ...data.user,
-      activeRole:
-        data.user?.activeRole ??
-        prev?.activeRole ??
-        "pasajero"
-    }));
+      activeRole: normalizeRole(data.user?.activeRole),
+    };
 
-    return data.user || null;
+    setUser(normalized);
+    return normalized;
   };
 
-  const syncUser = async () => {
-    if (!token) return;
+  const updateProfile = async (payload) => {
+    if (!token) throw new Error("No autenticado");
 
-    try {
-      const { data } = await api.get("/auth/me");
-      setUser({
-        ...data.user,
-        activeRole: data.user?.activeRole ?? "pasajero"
-      });
-    } catch (error) {
-      console.error("Error syncing user:", error);
-    }
+    const { data } = await api.put("/auth/me", payload);
+
+    const normalized = {
+      ...data.user,
+      activeRole: normalizeRole(data.user?.activeRole),
+    };
+
+    setUser(normalized);
+    return normalized;
   };
 
   const value = useMemo(
@@ -132,8 +123,7 @@ export function AuthProvider({ children }) {
       logout: handleLogout,
       refreshProfile,
       updateProfile,
-      syncUser,
-      loadingProfile
+      loadingProfile,
     }),
     [token, user, loadingProfile]
   );
