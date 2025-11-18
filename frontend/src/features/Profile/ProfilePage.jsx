@@ -114,7 +114,7 @@ export default function ProfilePage() {
       const { data } = await api.put("/auth/role", { role });
       if (data?.user) {
         await refreshProfile();
-        setSuccess(`Rol activo actualizado a ${role === "driver" ? "Conductor" : "Pasajero"}`);
+        setSuccess(`Rol activo actualizado a ${role === "conductor" ? "Conductor" : "Pasajero"}`);
       }
     } catch (err) {
       const message = err?.response?.data?.error || "No se pudo actualizar el rol";
@@ -124,8 +124,8 @@ export default function ProfilePage() {
     }
   }
 
-  const passengerActive = user?.activeRole === "passenger";
-  const driverActive = user?.activeRole === "driver";
+  const passengerActive = user?.activeRole === "pasajero";
+  const driverActive = user?.activeRole === "conductor";
   const hasDriverRole = rolesKey.includes("driver");
   const verifiedVehicles = useMemo(() => vehicles, [vehicles]);
 
@@ -527,7 +527,7 @@ export default function ProfilePage() {
                       ? "border-cyan-400 bg-cyan-500"
                       : "border-slate-300 bg-slate-300 hover:border-cyan-400 hover:bg-cyan-400"
                   } ${passengerToggleDisabled ? "cursor-not-allowed opacity-60" : ""}`}
-                  onClick={() => changeRole("passenger")}
+                  onClick={() => changeRole("pasajero")}
                   disabled={passengerToggleDisabled}
                 >
                   <span
@@ -567,7 +567,7 @@ export default function ProfilePage() {
                       ? "border-emerald-400 bg-emerald-500"
                       : "border-slate-300 bg-slate-300 hover:border-emerald-400 hover:bg-emerald-400"
                   } ${driverToggleDisabled ? "cursor-not-allowed opacity-60" : ""}`}
-                  onClick={() => changeRole("driver")}
+                  onClick={() => changeRole("conductor")}
                   disabled={driverToggleDisabled}
                 >
                   <span
