@@ -7,9 +7,8 @@ const resolvedDefaultBaseUrl = metaEnv?.DEV
   : "https://wheels-unisabana-2.onrender.com";
 const apiBaseUrl =
   metaEnv?.VITE_API_URL ||
-  process.env?.VITE_API_URL ||
   resolvedDefaultBaseUrl;
-const apiTimeout = Number(metaEnv?.VITE_API_TIMEOUT || process.env?.VITE_API_TIMEOUT) || 20000;
+const apiTimeout = Number(metaEnv?.VITE_API_TIMEOUT) || 20000;
 
 const api = axios.create({
   baseURL: apiBaseUrl,

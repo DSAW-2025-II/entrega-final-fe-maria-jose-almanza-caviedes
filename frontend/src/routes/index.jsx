@@ -13,7 +13,6 @@ import Logout from "../features/Auth/Logout.jsx";
 
 export default [
   <Route
-    key="dashboard"
     path="/dashboard"
     element={
       <ProtectedRoute>
@@ -22,7 +21,6 @@ export default [
     }
   />,
   <Route
-    key="trips-list"
     path="/trips"
     element={
       <ProtectedRoute>
@@ -31,7 +29,6 @@ export default [
     }
   />,
   <Route
-    key="trip-create"
     path="/trips/new"
     element={
       <ProtectedRoute>
@@ -40,7 +37,6 @@ export default [
     }
   />,
   <Route
-    key="vehicles"
     path="/vehicles"
     element={
       <ProtectedRoute>
@@ -49,7 +45,6 @@ export default [
     }
   />,
   <Route
-    key="reservations"
     path="/reservations"
     element={
       <ProtectedRoute>
@@ -58,7 +53,6 @@ export default [
     }
   />,
   <Route
-    key="profile"
     path="/profile"
     element={
       <ProtectedRoute>
@@ -67,7 +61,6 @@ export default [
     }
   />,
   <Route
-    key="logout"
     path="/logout"
     element={
       <ProtectedRoute>
@@ -76,7 +69,6 @@ export default [
     }
   />,
   <Route
-    key="add-pickup"
     path="/features/add-pickup-points"
     element={
       <ProtectedRoute>
@@ -85,7 +77,6 @@ export default [
     }
   />,
   <Route
-    key="calc-distance"
     path="/features/calculate-distance"
     element={
       <ProtectedRoute>
