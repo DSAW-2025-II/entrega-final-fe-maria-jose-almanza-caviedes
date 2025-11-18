@@ -109,20 +109,18 @@ export function AuthProvider({ children }) {
     return data.user || null;
   };
 
-  const updateProfile = async (payload) => {
-    if (!token) throw new Error("No autenticado");
+  const syncUser = async () => {
+    if (!token) return;
 
-    const { data } = await api.put("/auth/me", payload);
-
-    setUser((prev) => ({
-      ...data.user,
-      activeRole:
-        data.user?.activeRole ??
-        prev?.activeRole ??
-        "pasajero"
-    }));
-
-    return data.user || null;
+    try {
+      const { data } = await api.get("/auth/me");
+      setUser({
+        ...data.user,
+        activeRole: data.user?.activeRole ?? "pasajero"
+      });
+    } catch (error) {
+      console.error("Error syncing user:", error);
+    }
   };
 
   const value = useMemo(
@@ -134,6 +132,7 @@ export function AuthProvider({ children }) {
       logout: handleLogout,
       refreshProfile,
       updateProfile,
+      syncUser,
       loadingProfile
     }),
     [token, user, loadingProfile]
